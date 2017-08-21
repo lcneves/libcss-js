@@ -1,0 +1,111 @@
+example.o: example.c /usr/lib/emscripten/system/include/libc/assert.h \
+  /usr/lib/emscripten/system/include/libc/features.h \
+  /usr/lib/emscripten/system/include/libcxx/stdio.h \
+  /usr/lib/emscripten/system/include/libcxx/__config \
+  /usr/lib/emscripten/system/include/libc/stdio.h \
+  /usr/lib/emscripten/system/include/libc/bits/alltypes.h \
+  /usr/lib/emscripten/system/include/libcxx/string.h \
+  /usr/lib/emscripten/system/include/compat/string.h \
+  /usr/lib/emscripten/system/include/libc/string.h \
+  /usr/lib/emscripten/system/include/libc/strings.h libcss/libcss.h \
+  libwapcaplet/libwapcaplet.h \
+  /usr/lib/emscripten/system/include/libc/sys/types.h \
+  /usr/lib/emscripten/system/include/libc/endian.h \
+  /usr/lib/emscripten/system/include/libcxx/stdint.h \
+  /usr/lib/emscripten/system/include/libc/stdint.h \
+  /usr/lib/emscripten/system/include/libc/bits/stdint.h \
+  /usr/lib/emscripten/system/include/libc/sys/select.h \
+  /usr/lib/emscripten/system/include/libc/sys/sysmacros.h \
+  /usr/lib/emscripten/system/include/libcxx/stdbool.h \
+  /usr/lib/emscripten/system/include/libc/stdbool.h \
+  /usr/lib/emscripten/system/include/libcxx/stddef.h \
+  /usr/lib/emscripten/system/include/libc/stddef.h libcss/errors.h \
+  libcss/types.h /usr/lib/emscripten/system/include/libcxx/stdlib.h \
+  /usr/lib/emscripten/system/include/compat/stdlib.h \
+  /usr/lib/emscripten/system/include/libc/stdlib.h \
+  /usr/lib/emscripten/system/include/libc/alloca.h libcss/fpmath.h \
+  /usr/lib/emscripten/system/include/libcxx/limits.h \
+  /usr/lib/emscripten/system/include/libc/limits.h \
+  /usr/lib/emscripten/system/include/libc/bits/limits.h \
+  libcss/functypes.h libcss/computed.h libcss/properties.h \
+  libcss/select.h libcss/hint.h libcss/stylesheet.h libcss/font_face.h
+
+/usr/lib/emscripten/system/include/libc/assert.h:
+
+/usr/lib/emscripten/system/include/libc/features.h:
+
+/usr/lib/emscripten/system/include/libcxx/stdio.h:
+
+/usr/lib/emscripten/system/include/libcxx/__config:
+
+/usr/lib/emscripten/system/include/libc/stdio.h:
+
+/usr/lib/emscripten/system/include/libc/bits/alltypes.h:
+
+/usr/lib/emscripten/system/include/libcxx/string.h:
+
+/usr/lib/emscripten/system/include/compat/string.h:
+
+/usr/lib/emscripten/system/include/libc/string.h:
+
+/usr/lib/emscripten/system/include/libc/strings.h:
+
+libcss/libcss.h:
+
+libwapcaplet/libwapcaplet.h:
+
+/usr/lib/emscripten/system/include/libc/sys/types.h:
+
+/usr/lib/emscripten/system/include/libc/endian.h:
+
+/usr/lib/emscripten/system/include/libcxx/stdint.h:
+
+/usr/lib/emscripten/system/include/libc/stdint.h:
+
+/usr/lib/emscripten/system/include/libc/bits/stdint.h:
+
+/usr/lib/emscripten/system/include/libc/sys/select.h:
+
+/usr/lib/emscripten/system/include/libc/sys/sysmacros.h:
+
+/usr/lib/emscripten/system/include/libcxx/stdbool.h:
+
+/usr/lib/emscripten/system/include/libc/stdbool.h:
+
+/usr/lib/emscripten/system/include/libcxx/stddef.h:
+
+/usr/lib/emscripten/system/include/libc/stddef.h:
+
+libcss/errors.h:
+
+libcss/types.h:
+
+/usr/lib/emscripten/system/include/libcxx/stdlib.h:
+
+/usr/lib/emscripten/system/include/compat/stdlib.h:
+
+/usr/lib/emscripten/system/include/libc/stdlib.h:
+
+/usr/lib/emscripten/system/include/libc/alloca.h:
+
+libcss/fpmath.h:
+
+/usr/lib/emscripten/system/include/libcxx/limits.h:
+
+/usr/lib/emscripten/system/include/libc/limits.h:
+
+/usr/lib/emscripten/system/include/libc/bits/limits.h:
+
+libcss/functypes.h:
+
+libcss/computed.h:
+
+libcss/properties.h:
+
+libcss/select.h:
+
+libcss/hint.h:
+
+libcss/stylesheet.h:
+
+libcss/font_face.h:
