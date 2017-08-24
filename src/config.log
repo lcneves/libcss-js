@@ -261,10 +261,15 @@ configure:4154: $? = 0
 configure:4154: result: yes
 configure:4168: checking libcss/libcss.h usability
 configure:4168: /usr/lib/emscripten/emcc -c   conftest.c >&5
-conftest.c:54:10: fatal error: 'libcss/libcss.h' file not found
+conftest.c:54:10: error: 'libcss/libcss.h' file not found with <angled> include; use "quotes" instead
 #include <libcss/libcss.h>
          ^~~~~~~~~~~~~~~~~
-1 error generated.
+         "libcss/libcss.h"
+In file included from conftest.c:54:
+./libcss/libcss.h:16:10: fatal error: 'libwapcaplet/libwapcaplet.h' file not found
+#include <libwapcaplet/libwapcaplet.h>
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2 errors generated.
 ERROR:root:compiler frontend failed to generate LLVM bitcode, halting
 configure:4168: $? = 1
 configure: failed program was:
@@ -325,10 +330,15 @@ configure: failed program was:
 configure:4168: result: no
 configure:4168: checking libcss/libcss.h presence
 configure:4168: /usr/lib/emscripten/emcc -E  conftest.c
-conftest.c:21:10: fatal error: 'libcss/libcss.h' file not found
+conftest.c:21:10: error: 'libcss/libcss.h' file not found with <angled> include; use "quotes" instead
 #include <libcss/libcss.h>
          ^~~~~~~~~~~~~~~~~
-1 error generated.
+         "libcss/libcss.h"
+In file included from conftest.c:21:
+./libcss/libcss.h:16:10: fatal error: 'libwapcaplet/libwapcaplet.h' file not found
+#include <libwapcaplet/libwapcaplet.h>
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2 errors generated.
 configure:4168: $? = 1
 configure: failed program was:
 | /* confdefs.h */
@@ -406,9 +416,10 @@ configure: failed program was:
 configure:4212: result: no
 configure:4225: checking libwapcaplet/libwapcaplet.h usability
 configure:4225: /usr/lib/emscripten/emcc -c   conftest.c >&5
-conftest.c:54:10: fatal error: 'libwapcaplet/libwapcaplet.h' file not found
+conftest.c:54:10: error: 'libwapcaplet/libwapcaplet.h' file not found with <angled> include; use "quotes" instead
 #include <libwapcaplet/libwapcaplet.h>
          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         "libwapcaplet/libwapcaplet.h"
 1 error generated.
 ERROR:root:compiler frontend failed to generate LLVM bitcode, halting
 configure:4225: $? = 1
@@ -470,9 +481,10 @@ configure: failed program was:
 configure:4225: result: no
 configure:4225: checking libwapcaplet/libwapcaplet.h presence
 configure:4225: /usr/lib/emscripten/emcc -E  conftest.c
-conftest.c:21:10: fatal error: 'libwapcaplet/libwapcaplet.h' file not found
+conftest.c:21:10: error: 'libwapcaplet/libwapcaplet.h' file not found with <angled> include; use "quotes" instead
 #include <libwapcaplet/libwapcaplet.h>
          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         "libwapcaplet/libwapcaplet.h"
 1 error generated.
 configure:4225: $? = 1
 configure: failed program was:
@@ -725,7 +737,7 @@ am_cv_prog_cc_c_o=yes
 ## Output variables. ##
 ## ----------------- ##
 
-ACLOCAL='${SHELL} /home/lucas/dev/random/libcss-bc/src/missing aclocal-1.15'
+ACLOCAL='${SHELL} /home/lucas/dev/projects/libcss-js/src/missing aclocal-1.15'
 AMDEPBACKSLASH='\'
 AMDEP_FALSE='#'
 AMDEP_TRUE=''
@@ -734,9 +746,9 @@ AM_BACKSLASH='\'
 AM_DEFAULT_V='$(AM_DEFAULT_VERBOSITY)'
 AM_DEFAULT_VERBOSITY='1'
 AM_V='$(V)'
-AUTOCONF='${SHELL} /home/lucas/dev/random/libcss-bc/src/missing autoconf'
-AUTOHEADER='${SHELL} /home/lucas/dev/random/libcss-bc/src/missing autoheader'
-AUTOMAKE='${SHELL} /home/lucas/dev/random/libcss-bc/src/missing automake-1.15'
+AUTOCONF='${SHELL} /home/lucas/dev/projects/libcss-js/src/missing autoconf'
+AUTOHEADER='${SHELL} /home/lucas/dev/projects/libcss-js/src/missing autoheader'
+AUTOMAKE='${SHELL} /home/lucas/dev/projects/libcss-js/src/missing automake-1.15'
 AWK='gawk'
 CC='/usr/lib/emscripten/emcc'
 CCDEPMODE='depmode=gcc3'
@@ -760,7 +772,7 @@ LDFLAGS=''
 LIBOBJS=''
 LIBS=''
 LTLIBOBJS=''
-MAKEINFO='${SHELL} /home/lucas/dev/random/libcss-bc/src/missing makeinfo'
+MAKEINFO='${SHELL} /home/lucas/dev/projects/libcss-js/src/missing makeinfo'
 MKDIR_P='/usr/bin/mkdir -p'
 OBJEXT='o'
 PACKAGE='example'
@@ -798,7 +810,7 @@ host_alias=''
 htmldir='${docdir}'
 includedir='${prefix}/include'
 infodir='${datarootdir}/info'
-install_sh='${SHELL} /home/lucas/dev/random/libcss-bc/src/install-sh'
+install_sh='${SHELL} /home/lucas/dev/projects/libcss-js/src/install-sh'
 libdir='${exec_prefix}/lib'
 libexecdir='${exec_prefix}/libexec'
 localedir='${datarootdir}/locale'

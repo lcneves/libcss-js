@@ -3137,10 +3137,10 @@ function _node_presentational_hint($0,$1,$2,$3) {
  $9 = $5;
  $5 = $9;
  $10 = $6;
- $6 = $10;
+ HEAP32[$10>>2] = 0;
  $11 = $7;
- $7 = $11;
- STACKTOP = sp;return 9;
+ HEAP32[$11>>2] = 0;
+ STACKTOP = sp;return 0;
 }
 function _ua_default_for_property($0,$1,$2) {
  $0 = $0|0;
