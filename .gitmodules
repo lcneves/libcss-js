@@ -1,0 +1,9 @@
+[submodule "src/libcss"]
+	path = src/libcss
+	url = ssh://nsgit@git.netsurf-browser.org/libcss.git
+[submodule "src/libparserutils"]
+	path = src/libparserutils
+	url = ssh://nsgit@git.netsurf-browser.org/libparserutils.git
+[submodule "src/libwapcaplet"]
+	path = src/libwapcaplet
+	url = ssh://nsgit@git.netsurf-browser.org/libwapcaplet.git
