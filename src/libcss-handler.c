@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include <libcss/libcss.h>
+#include "libcss/test/dump_computed.h"
 
 css_error css_resolve_url(void *pw, const char *base,
 		lwc_string *rel, lwc_string **abs);
@@ -81,6 +82,23 @@ static css_error set_libcss_node_data(void *pw, void *node,
 static css_error get_libcss_node_data(void *pw, void *node,
 		void **libcss_node_data);
 
+typedef enum css_js_error {
+	CSS_JS_OK            =  0,
+	CSS_JS_ELEMENT       =  1,
+	CSS_JS_PSEUDO        =  2,
+	CSS_JS_CREATE_CTX    =  3,
+	CSS_JS_CREATE_SHEET  =  4,
+	CSS_JS_CREATE_STYLE  =  5,
+	CSS_JS_DESTROY_CTX   =  6,
+	CSS_JS_DESTROY_SHEET =  7,
+	CSS_JS_DESTROY_STYLE =  8,
+	CSS_JS_APPEND_DATA   =  9,
+	CSS_JS_DATA_DONE     = 10,
+	CSS_JS_APPEND_SHEET  = 11
+} css_js_error;
+
+css_select_ctx* select_ctx = NULL;
+
 /**
  * Selection callback table for libcss
  */
@@ -126,9 +144,6 @@ static css_select_handler selection_handler = {
 	get_libcss_node_data,
 };
 
-css_select_ctx* select_ctx;
-css_select_ctx_create(&select_ctx);
-
 css_error resolve_url(
 		void *pw, const char *base, lwc_string *rel, lwc_string **abs
 		)
@@ -150,13 +165,38 @@ css_error resolve_url(
 	return CSS_OK;
 }
 
-void add_stylesheet (
+css_js_error reset_ctx()
+{
+	css_error code;
+
+	if (select_ctx != NULL) {
+		for (uint32_t i = 0; i < ctx->n_sheets; ++i) {
+			code = css_stylesheet_destroy(ctx->sheets[index].sheet);
+			if (code != CSS_OK)
+				return CSS_JS_DESTROY_SHEET;
+		}
+
+		code = css_select_ctx_destroy(select_ctx);
+		if (code != CSS_OK)
+			return CSS_JS_DESTROY_CTX;
+	}
+
+	code = css_select_ctx_create(&select_ctx);
+	if (code != CSS_OK)
+		return CSS_JS_CREATE_CTX;
+
+	return CSS_JS_OK;
+}
+
+css_js_error add_stylesheet (
 		const char* css_string,
 		const char* level,
 		const char* charset,
 		const char* url
 		)
 {
+	css_error code;
+
 	css_language_level css_level;
 	if (strcmp(level, "1") == 0)
 		css_level = CSS_LEVEL_1;
@@ -185,32 +225,51 @@ void add_stylesheet (
 	params.font_pw = NULL;
 
 	css_stylesheet *sheet;
-	css_stylesheet_create(&params, &sheet);
 
-	css_stylesheet_append_data(
+	code = css_stylesheet_create(&params, &sheet);
+	if (code != CSS_OK)
+		return CSS_JS_CREATE_SHEET;
+
+	code = css_stylesheet_append_data(
 			sheet,
 			(const uint8_t *) data,
 			sizeof data
 			);
-	css_stylesheet_data_done(sheet);
+	if (code != CSS_OK && code != CSS_NEEDDATA)
+		return CSS_JS_APPEND_DATA;
 
-	css_select_ctx_append_sheet(
+	code = css_stylesheet_data_done(sheet);
+	if (code != CSS_OK)
+		return CSS_JS_DATA_DONE;
+
+	if (select_ctx == NULL) {
+		css_js_error js_error = reset_ctx();
+		if (js_error != CSS_JS_OK)
+			return js_error;
+	}
+
+	code = css_select_ctx_append_sheet(
 			select_ctx,
 			sheet,
 			CSS_ORIGIN_AUTHOR,
 			CSS_MEDIA_ALL
-			);
+	);
+	if (code != CSS_OK)
+		return CSS_JS_APPEND_SHEET;
+
+	return CSS_JS_OK;
 }
 
 /*
  * Warning: if inline_style is set, the resulting stylesheet will not
  * be destroyed! This implementation leaks memory.
  */
-css_select_results* build_style(
-		lwc_string* node,
-		const char* inline_style
-		)
+css_js_error build_style(lwc_string* node,
+		      const char* inline_style,
+		      css_select_results** results)
 {
+	css_error code;
+
 	const css_stylesheet* in_style;
 	if (inline_style == NULL || *inline_style == "\0")
 		in_style = NULL;
@@ -234,345 +293,79 @@ css_select_results* build_style(
 		params.font_pw = NULL;
 
 		css_stylesheet* sheet;
-		css_stylesheet_create(&params, &sheet);
+		code = css_stylesheet_create(&params, &sheet);
+		if (code != CSS_OK)
+			return CSS_JS_CREATE_SHEET;
 
-		css_stylesheet_append_data(
+		code = css_stylesheet_append_data(
 				sheet,
 				(const uint8_t *) inline_style,
 				sizeof inline_style
 				);
-		css_stylesheet_data_done(sheet);
+		if (code != CSS_OK && CODE != CSS_NEEDDATA)
+			return CSS_JS_APPEND_DATA;
+
+		code = css_stylesheet_data_done(sheet);
+		if (code != CSS_OK)
+			return CSS_JS_DATA_DONE;
+
 		in_style = sheet;
 	}
 
-	css_select_results* results;
-	css_select_style(
+	code = css_select_style(
 			select_ctx,
 			node,
 			CSS_MEDIA_SCREEN,
 			in_style,
 			selection_handler,
 			NULL,
-			&results
+			results
 			);
+	if (code != CSS_OK)
+		return CSS_JS_CREATE_STYLE;
 
-	return results;
+	return CSS_JS_OK;
 }
 
-uint64_t make_results_for_js (
-		uint8_t type,
-		uint8_t var1,
-		uint8_t var2,
-		uint8_t var3
-		)
+css_js_error get_style (const char* element,
+			const char* pseudo,
+			const char* inline_style,
+			char* results,
+			size_t len)
 {
-	uint64_t results = (uint64_t) type;
-	results += ((uint64_t) var1) * 0x100;
-	results += ((uint64_t) var2) * 0x10000;
-	results += ((uint64_t) var3) * 0x1000000;
-	return results;
-}
+	css_error code;
+	css_js_error js_code;
 
-uint64_t get_style (const css_computed_style* s, uint8_t prop)
-{
-	uint64_t style;
-	const uint64_t NOT_IMPLEMENTED = 0xffffffffffffffff;
+	css_pseudo_element pseudo_code;
+	if (strcmp(pseudo, "none") == 0)
+		pseudo_code = CSS_PSEUDO_ELEMENT_NONE;
+	else if (strcmp(pseudo, "first-line") == 0)
+		pseudo_code = CSS_PSEUDO_FIRST_LINE;
+	else if (strcmp(pseudo, "first-letter") == 0)
+		pseudo_code = CSS_PSEUDO_FIRST_LETTER;
+	else if (strcmp(pseudo, "before") == 0)
+		pseudo_code = CSS_PSEUDO_BEFORE;
+	else if (strcmp(pseudo, "after") == 0)
+		pseudo_code = CSS_PSEUDO_AFTER;
+	else
+		return CSS_JS_PSEUDO;
 
-	switch (prop)
-	{
-		case CSS_PROP_AZIMUTH:
-			style = NOT_IMPLEMENTED;
-			break;
-		case CSS_PROP_BACKGROUND_ATTACHMENT:
-			style = css_computed_background_attachment(s);
-			break;
-		case CSS_PROP_BACKGROUND_COLOR:
-			css_color* color;
-			style = css_computed_background_color(s, color);
-			style += ((uint64_t) (*color)) * 0x100;
-			break;
-		case CSS_PROP_BACKGROUND_IMAGE:
-			lwc_string* url;
-			css_computed_background_image(s, &url);
-			style = (uint64_t) url;
-			break;
-		case CSS_PROP_BACKGROUND_POSITION:
-			/*
-			 * TODO: Need to find a way to fit two uint32_t and one uint8_t in our
-			 * uint64_t. Might need a breakthrough in quantum computers for this.
-			 */
-			style = NOT_IMPLEMENTED;
-			break;
-		case CSS_PROP_BACKGROUND_REPEAT:
-			style = css_computed_background_repeat(s);
-			break;
-		case CSS_PROP_BORDER_COLLAPSE:
-			style = css_computed_border_collapse(s);
-			break;
-		case CSS_PROP_BORDER_SPACING:
-			style = NOT_IMPLEMENTED;
-			break;
-		case CSS_PROP_BORDER_TOP_COLOR:
-			css_color* color;
-			style = css_computed_border_top_color(s, color);
-			style += ((uint64_t) (*color)) * 0x100;
-			break;
-		case CSS_PROP_BORDER_RIGHT_COLOR:
-			css_color* color;
-			style = css_computed_border_right_color(s, color);
-			style += ((uint64_t) (*color)) * 0x100;
-			break;
-		case CSS_PROP_BORDER_BOTTOM_COLOR:
-			css_color* color;
-			style = css_computed_border_bottom_color(s, color);
-			style += ((uint64_t) (*color)) * 0x100;
-			break;
-		case CSS_PROP_BORDER_LEFT_COLOR:
-			css_color* color;
-			style = css_computed_border_left_color(s, color);
-			style += ((uint64_t) (*color)) * 0x100;
-			break;
-		case CSS_PROP_BORDER_TOP_STYLE:
-			style = css_computed_border_top_style(s);
-			break;
-		case CSS_PROP_BORDER_RIGHT_STYLE:
-			style = css_computed_border_right_style(s);
-			break;
-		case CSS_PROP_BORDER_BOTTOM_STYLE:
-			style = css_computed_border_bottom_style(s);
-			break;
-		case CSS_PROP_BORDER_LEFT_STYLE:
-			style = css_computed_border_left_style(s);
-			break;
-		case CSS_PROP_BORDER_TOP_WIDTH:
-			css_fixed* width; /* = int32_t */
-			css_unit* unit; /* A number literal */
-			style = css_computed_border_top_width(s, width, unit);
-			style += ((uint64_t) (*width)) * 0x100;
-			style += ((uint64_t) (*unit)) * 0x10000000000;
-			break;
-		case CSS_PROP_BORDER_RIGHT_WIDTH:
-			css_fixed* width;
-			css_unit* unit;
-			style = css_computed_border_right_width(s, width, unit);
-			style += ((uint64_t) (*width)) * 0x100;
-			style += ((uint64_t) (*unit)) * 0x10000000000;
-			break;
-		case CSS_PROP_BORDER_BOTTOM_WIDTH:
-			css_fixed* width;
-			css_unit* unit;
-			style = css_computed_border_bottom_width(s, width, unit);
-			style += ((uint64_t) (*width)) * 0x100;
-			style += ((uint64_t) (*unit)) * 0x10000000000;
-			break;
-		case CSS_PROP_BORDER_LEFT_WIDTH:
-			css_fixed* width;
-			css_unit* unit;
-			style = css_computed_border_left_width(s, width, unit);
-			style += ((uint64_t) (*width)) * 0x100;
-			style += ((uint64_t) (*unit)) * 0x10000000000;
-			break;
-		case CSS_PROP_BOTTOM:
-			css_fixed* length;
-			css_unit* unit;
-			style = css_computed_bottom(s, length, unit);
-			style += ((uint64_t) (*length)) * 0x100;
-			style += ((uint64_t) (*unit)) * 0x10000000000;
-			break;
-		case CSS_PROP_CAPTION_SIDE:
-			style = css_computed_caption_side(s);
-			break;
-		case CSS_PROP_CLEAR:
-			style = css_computed_clear(s);
-			break;
-		case CSS_PROP_CLIP:
-			break;
-		case CSS_PROP_COLOR:
-			break;
-		case CSS_PROP_CONTENT:
-			break;
-		case CSS_PROP_COUNTER_INCREMENT:
-			break;
-		case CSS_PROP_COUNTER_RESET:
-			break;
-		case CSS_PROP_CUE_AFTER:
-			break;
-		case CSS_PROP_CUE_BEFORE:
-			break;
-		case CSS_PROP_CURSOR:
-			break;
-		case CSS_PROP_DIRECTION:
-			break;
-		case CSS_PROP_DISPLAY:
-			break;
-		case CSS_PROP_ELEVATION:
-			break;
-		case CSS_PROP_EMPTY_CELLS:
-			break;
-		case CSS_PROP_FLOAT:
-			break;
-		case CSS_PROP_FONT_FAMILY:
-			break;
-		case CSS_PROP_FONT_SIZE:
-			break;
-		case CSS_PROP_FONT_STYLE:
-			break;
-		case CSS_PROP_FONT_VARIANT:
-			break;
-		case CSS_PROP_FONT_WEIGHT:
-			break;
-		case CSS_PROP_HEIGHT:
-			break;
-		case CSS_PROP_LEFT:
-			break;
-		case CSS_PROP_LETTER_SPACING:
-			break;
-		case CSS_PROP_LINE_HEIGHT:
-			break;
-		case CSS_PROP_LIST_STYLE_IMAGE:
-			break;
-		case CSS_PROP_LIST_STYLE_POSITION:
-			break;
-		case CSS_PROP_LIST_STYLE_TYPE:
-			break;
-		case CSS_PROP_MARGIN_TOP:
-			break;
-		case CSS_PROP_MARGIN_RIGHT:
-			break;
-		case CSS_PROP_MARGIN_BOTTOM:
-			break;
-		case CSS_PROP_MARGIN_LEFT:
-			break;
-		case CSS_PROP_MAX_HEIGHT:
-			break;
-		case CSS_PROP_MAX_WIDTH:
-			break;
-		case CSS_PROP_MIN_HEIGHT:
-			break;
-		case CSS_PROP_MIN_WIDTH:
-			break;
-		case CSS_PROP_ORPHANS:
-			break;
-		case CSS_PROP_OUTLINE_COLOR:
-			break;
-		case CSS_PROP_OUTLINE_STYLE:
-			break;
-		case CSS_PROP_OUTLINE_WIDTH:
-			break;
-		case CSS_PROP_OVERFLOW_X:
-			break;
-		case CSS_PROP_PADDING_TOP:
-			break;
-		case CSS_PROP_PADDING_RIGHT:
-			break;
-		case CSS_PROP_PADDING_BOTTOM:
-			break;
-		case CSS_PROP_PADDING_LEFT:
-			break;
-		case CSS_PROP_PAGE_BREAK_AFTER:
-			break;
-		case CSS_PROP_PAGE_BREAK_BEFORE:
-			break;
-		case CSS_PROP_PAGE_BREAK_INSIDE:
-			break;
-		case CSS_PROP_PAUSE_AFTER:
-			break;
-		case CSS_PROP_PAUSE_BEFORE:
-			break;
-		case CSS_PROP_PITCH_RANGE:
-			break;
-		case CSS_PROP_PITCH:
-			break;
-		case CSS_PROP_PLAY_DURING:
-			break;
-		case CSS_PROP_POSITION:
-			break;
-		case CSS_PROP_QUOTES:
-			break;
-		case CSS_PROP_RICHNESS:
-			break;
-		case CSS_PROP_RIGHT:
-			break;
-		case CSS_PROP_SPEAK_HEADER:
-			break;
-		case CSS_PROP_SPEAK_NUMERAL:
-			break;
-		case CSS_PROP_SPEAK_PUNCTUATION:
-			break;
-		case CSS_PROP_SPEAK:
-			break;
-		case CSS_PROP_SPEECH_RATE:
-			break;
-		case CSS_PROP_STRESS:
-			break;
-		case CSS_PROP_TABLE_LAYOUT:
-			break;
-		case CSS_PROP_TEXT_ALIGN:
-			break;
-		case CSS_PROP_TEXT_DECORATION:
-			break;
-		case CSS_PROP_TEXT_INDENT:
-			break;
-		case CSS_PROP_TEXT_TRANSFORM:
-			break;
-		case CSS_PROP_TOP:
-			break;
-		case CSS_PROP_UNICODE_BIDI:
-			break;
-		case CSS_PROP_VERTICAL_ALIGN:
-			break;
-		case CSS_PROP_VISIBILITY:
-			break;
-		case CSS_PROP_VOICE_FAMILY:
-			break;
-		case CSS_PROP_VOLUME:
-			break;
-		case CSS_PROP_WHITE_SPACE:
-			break;
-		case CSS_PROP_WIDOWS:
-			break;
-		case CSS_PROP_WIDTH:
-			break;
-		case CSS_PROP_WORD_SPACING:
-			break;
-		case CSS_PROP_Z_INDEX:
-			break;
-		case CSS_PROP_OPACITY:
-			break;
-		case CSS_PROP_BREAK_AFTER:
-			break;
-		case CSS_PROP_BREAK_BEFORE:
-			break;
-		case CSS_PROP_BREAK_INSIDE:
-			break;
-		case CSS_PROP_COLUMN_COUNT:
-			break;
-		case CSS_PROP_COLUMN_FILL:
-			break;
-		case CSS_PROP_COLUMN_GAP:
-			break;
-		case CSS_PROP_COLUMN_RULE_COLOR:
-			break;
-		case CSS_PROP_COLUMN_RULE_STYLE:
-			break;
-		case CSS_PROP_COLUMN_RULE_WIDTH:
-			break;
-		case CSS_PROP_COLUMN_SPAN:
-			break;
-		case CSS_PROP_COLUMN_WIDTH:
-			break;
-		case CSS_PROP_WRITING_MODE:
-			break;
-		case CSS_PROP_OVERFLOW_Y:
-			break;
-		case CSS_PROP_BOX_SIZING:
-			break;
-		default:
-			style = NOT_IMPLEMENTED;
-			break;
-	}
+	lwc_string* node;
+	lwc_intern_string(element, strlen(element), &node);
+	css_select_results* style;
+	js_code = build_style(node, inline_style, &style);
+	if (js_code != CSS_JS_OK)
+		return js_code;
 
-	return style;
+	lwc_string_unref(node);
+
+	dump_computed_style(style->styles[pseudo_code], results, &len);
+
+	code = css_select_results_destroy(style);
+	if (code != CSS_OK)
+		return CSS_JS_DESTROY_STYLE;
+
+	return CSS_JS_OK;
 }
 
 const int UA_FONT_SIZE = js_ua_font_size();
