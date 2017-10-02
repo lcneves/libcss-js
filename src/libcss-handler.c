@@ -460,7 +460,7 @@ lwc_string* NULL_STR;
 lwc_intern_string("", 0, &NULL_STR);
 
 /*
- * Generic get function to be used by callbacks. Must return string.
+ * Generic get function to be used by callbacks. Must yield string.
  */
 css_error get_string (
 		void *node,
@@ -489,13 +489,13 @@ css_error get_string (
 }
 
 /*
- * Generic search function to be used by callbacks. Must return boolean.
+ * Generic search function to be used by callbacks. Must yield boolean.
  */
 css_error match_bool (
 		void *node,
 		lwc_string* search_parameter,
 		lwc_string* match_parameter,
-		const char* (*js_fun)(const char*, const char*, const char*),
+		bool (*js_fun)(const char*, const char*, const char*),
 		bool* ret
 		)
 {
@@ -512,12 +512,12 @@ css_error match_bool (
 		? lwc_string_data(NULL_STR)
 		: lwc_string_data(m);
 
-	*ret = (*js_fun)(node_string, search_string,  match_string);
+	*ret = (*js_fun)(node_string, search_string, match_string);
 	return CSS_OK;
 }
 
 /*
- * Generic search function to be used by callbacks. Must return string.
+ * Generic search function to be used by callbacks. Must yield string.
  */
 css_error match_string (
 		void *node,
