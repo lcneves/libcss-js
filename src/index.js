@@ -68,3 +68,67 @@
  *
  * const int js_ua_font_size();
  */
+
+var lh = require('./libcss-handler.js');
+
+var ch; //Client handler functions
+module.exports.init = (options) => ch = options;
+
+var exportFunctions = [
+  function js_node_name (node) {
+    var nodeId = lh.Pointer_stringify(node);
+    var results = ch.getTagName(nodeId);
+    var ptr = allocate(
+      ch.Module.intArrayFromString(results), 'i8', ch.Module.ALLOC_NORMAL);
+    return ptr;
+  },
+  function js_node_classes(node) {
+    var nodeId = lh.Pointer_stringify(node);
+    var results = ch.getAttributes(nodeId);
+    var classes = results['class'] ? results['class'].split(' ') : [];
+    classes = JSON.stringify(classes);
+    var ptr = allocate(
+      ch.Module.intArrayFromString(classes), 'i8', ch.Module.ALLOC_NORMAL);
+    return ptr;
+  },
+  function js_node_id(node) {
+    var nodeId = lh.Pointer_stringify(node);
+    var results = ch.getAttributes(nodeId);
+    var id = results['id'] ? results['id'] : '';
+    var ptr = allocate(
+      ch.Module.intArrayFromString(id), 'i8', ch.Module.ALLOC_NORMAL);
+    return ptr;
+  },
+  function js_named_ancestor_node(node, ancestor) {},
+  function js_named_parent_node(node, parent) {},
+  function js_named_sibling_node(node, sibling) {},
+  function js_named_generic_sibling_node(node, sibling) {},
+  function js_parent_node(node) {},
+  function js_sibling_node(node) {},
+  function js_node_has_name(node, search, empty_match) {},
+  function js_node_has_class(node, search, empty_match) {},
+  function js_node_has_id(node, search, empty_match) {},
+  function js_node_has_attribute(node, search, empty_match) {},
+  function js_node_has_attribute_equal(node, search, match) {},
+  function js_node_has_attribute_dashmatch(node, search, match) {},
+  function js_node_has_attribute_includes(node, search, match) {},
+  function js_node_has_attribute_prefix(node, search, match) {},
+  function js_node_has_attribute_suffix(node, search, match) {},
+  function js_node_has_attribute_substring(node, search, match) {},
+  function js_node_is_root(node, empty_search, empty_match) {},
+  function js_node_count_siblings(node,  same_name,  after) {},
+  function js_node_is_empty(node, empty_search, empty_match) {},
+  function js_node_is_link(node, empty_search, empty_match) {},
+  function js_node_is_visited(node, empty_search, empty_match) {},
+  function js_node_is_hover(node, empty_search, empty_match) {},
+  function js_node_is_active(node, empty_search, empty_match) {},
+  function js_node_is_focus(node, empty_search, empty_match) {},
+  function js_node_is_enabled(node, empty_search, empty_match) {},
+  function js_node_is_disabled(node, empty_search, empty_match) {},
+  function js_node_is_checked(node, empty_search, empty_match) {},
+  function js_node_is_target(node, empty_search, empty_match) {},
+  function js_node_is_lang(node, search, empty_match) {},
+  function js_ua_font_size() {}
+];
+
+
