@@ -115,6 +115,12 @@ const error = [
   'Invalid length of handler functions array!'
 ];
 
+function free(...args) {
+  for (let arg in args) {
+    lh.free(arg);
+  }
+}
+
 function getString (chFun) {
   var nodeId = lh.Pointer_stringify(node);
   var results = chFun(nodeId);
@@ -465,7 +471,7 @@ var exportFunctions = [
   }
 ];
 
-module.exports.init = (clientHandlers) => {
+module.exports.init = function (clientHandlers) {
   var requiredHandlers = [
     'getTagName',
     'getAttributes',
@@ -493,3 +499,84 @@ module.exports.init = (clientHandlers) => {
     throw new Error(error[err]);
   };
 }
+
+module.exports.getStyle = function (node, pseudo) {
+  if (typeof node !== 'string')
+    throw new Error('Node identifier must be a string!');
+
+  const supportedPseudo = [
+    'none', 'first-line', 'first-letter', 'before', 'after'];
+  if (typeof pseudo !== 'undefined') {
+    if (supportedPseudo.indexOf(pseudo) === -1) {
+      throw new Error('Supported values for pseudo-elements are ' +
+        JSON.stringify(supportedPseudo));
+    }
+  }
+  else {
+    pseudo = '';
+  }
+
+  var inlineStyle = '';
+  var attributes = ch.getAttributes(node);
+  for (let attribute of attributes) {
+    if (attribute.attribute.toLowerCase() === 'style') {
+      inlineStyle = attribute.value;
+      break;
+    }
+  }
+
+  const resultsLength = 8192; // Same as in libcss's selection test.
+  var resultsPtr = lh.malloc(resultsLength);
+  var nodePtr = pointerize(node);
+  var pseudoPtr = pointerize(pseudo);
+  var inlinePtr = pointerize(style);
+
+  var err = lh.getStyle(
+    nodePtr, pseudoPtr, inlinePtr, resultsPtr, resultsLength);
+  if (error[err] !== 'OK') {
+    free(nodePtr, pseudoPtr, inlinePtr, resultsPtr);
+    throw new Error(error[err]);
+  }
+
+  var results = lh.Pointer_stringify(resultsPtr);
+  free(nodePtr, pseudoPtr, inlinePtr, resultsPtr);
+
+  var resultsArr = results.split('\n');
+  var resultsObj = {};
+  for (let line of resultsArray) {
+    let colon = line.indexOf(':');
+    let prop = line.substring(0, colon).trim();
+    let value = line.substring(colon + 1).trim();
+    resultsObj[prop] = value;
+  }
+
+  return resultsObj;
+}
+
+module.exports.addSheet = function (sheet, options) {
+  if (typeof node !== 'string')
+    throw new Error('Argument must be a string!');
+
+  if (options === null || typeof options !== 'object') options = {};
+  if (typeof options.level !== 'string') options.level = '3';
+  if (typeof options.charset !== 'string') options.charset = 'UTF-8';
+  if (typeof options.url !== 'string') options.url = '';
+
+  var sheetPtr = pointerize(sheet);
+  var levelPtr = pointerize(options.level);
+  var charsetPtr = pointerize(options.charset);
+  var urlPtr = pointerize(url);
+
+  var err = lh.addStylesheet(sheetPtr, levelPtr, charsetPtr, urlPtr);
+  free(sheetPtr, levelPtr, charsetPtr, urlPtr);
+
+  if (error[err] !== 'OK')
+    throw new Error(error[err]);
+}
+
+module.exports.reset = function () {
+  var err = lh.resetCtx();
+  if (error[err] !== 'OK')
+    throw new Error(error[err]);
+}
+

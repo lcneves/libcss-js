@@ -342,7 +342,7 @@ css_js_error add_stylesheet (
 		const char* css_string,
 		const char* level,
 		const char* charset,
-		const char* url
+		const char* url_str
 		)
 {
 	css_error code;
@@ -356,6 +356,8 @@ css_js_error add_stylesheet (
 		css_level = CSS_LEVEL_21;
 	else
 		css_level = CSS_LEVEL_3; /* Default */
+
+        const char* url = *url_str == "\0" ? NULL : url_str;
 
 	css_stylesheet_params params;
 	params.params_version = CSS_STYLESHEET_PARAMS_VERSION_1;
