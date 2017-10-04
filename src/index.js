@@ -99,6 +99,22 @@ var ch; //Client handler functions
 
 const DEFAULT_FONT_SIZE = 16;
 
+const error = [
+  'OK',
+  'Invalid element!',
+  'Invalid pseudo-element!',
+  'Unable to create selection context!',
+  'Unable to create stylesheet!',
+  'Unable to create computed style for element!',
+  'Unable to destroy selection context!',
+  'Unable to destroy stylesheet!',
+  'Unable to destroy computed style for element!',
+  'Unable to append data to stylesheet!',
+  'Unable to declare the data on the stylesheet as done!',
+  'Unable to append stylesheet to selection context!',
+  'Invalid length of handler functions array!'
+];
+
 function getString (chFun) {
   var nodeId = lh.Pointer_stringify(node);
   var results = chFun(nodeId);
@@ -450,5 +466,30 @@ var exportFunctions = [
 ];
 
 module.exports.init = (clientHandlers) => {
+  var requiredHandlers = [
+    'getTagName',
+    'getAttributes',
+    'getSiblings',
+    'getAncestors',
+    'isEmpty'
+  ];
+  for (let handler of requiredHandlers) {
+    if (typeof clientHandlers[handler] !== 'function') {
+      throw new Error('Function ' + handler + ' not provided!');
+    }
+  }
   ch = clientHandlers;
+
+  var handlerPtr = lh.malloc(
+    exportFunctions.length * Uint32Array.BYTES_PER_ELEMENT);
+  for (let i = 0; i < exportFunctions.length; i++) {
+    let funPtr = lh.Runtime.addFunction(exportFunctions[i]);
+    lh.Module.setValue(
+      handlerPtr + i * Uint32Array.BYTES_PER_ELEMENT, funPtr, '*');
+  }
+
+  var err = lh.setHandlers(handlerPtr, handlerPtr.length);
+  if (error[err] !== 'OK') {
+    throw new Error(error[err]);
+  };
 }

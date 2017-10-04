@@ -83,19 +83,169 @@ static css_error get_libcss_node_data(void *pw, void *node,
 		void **libcss_node_data);
 
 typedef enum css_js_error {
-	CSS_JS_OK            =  0,
-	CSS_JS_ELEMENT       =  1,
-	CSS_JS_PSEUDO        =  2,
-	CSS_JS_CREATE_CTX    =  3,
-	CSS_JS_CREATE_SHEET  =  4,
-	CSS_JS_CREATE_STYLE  =  5,
-	CSS_JS_DESTROY_CTX   =  6,
-	CSS_JS_DESTROY_SHEET =  7,
-	CSS_JS_DESTROY_STYLE =  8,
-	CSS_JS_APPEND_DATA   =  9,
-	CSS_JS_DATA_DONE     = 10,
-	CSS_JS_APPEND_SHEET  = 11
+	CSS_JS_OK             =  0,
+	CSS_JS_ELEMENT        =  1,
+	CSS_JS_PSEUDO         =  2,
+	CSS_JS_CREATE_CTX     =  3,
+	CSS_JS_CREATE_SHEET   =  4,
+	CSS_JS_CREATE_STYLE   =  5,
+	CSS_JS_DESTROY_CTX    =  6,
+	CSS_JS_DESTROY_SHEET  =  7,
+	CSS_JS_DESTROY_STYLE  =  8,
+	CSS_JS_APPEND_DATA    =  9,
+	CSS_JS_DATA_DONE      = 10,
+	CSS_JS_APPEND_SHEET   = 11,
+	CSS_JS_HANDLER_LENGTH = 12
 } css_js_error;
+
+/*
+ * Pointers for handler functions to be received from the Javascript end.
+ */
+const char* (*js_node_name)(const char* node) = NULL;
+const char* (*js_node_classes)(const char* node) = NULL;
+const char* (*js_node_id)(const char* node) = NULL;
+const char* (*js_named_ancestor_node)(const char* node, const char* ancestor)
+	= NULL;
+const char* (*js_named_parent_node)(const char* node, const char* parent)
+	= NULL;
+const char* (*js_named_sibling_node)(const char* node, const char* sibling)
+	= NULL;
+const char* (*js_named_generic_sibling_node)(
+		const char* node, const char* sibling) = NULL;
+const char* (*js_parent_node)(const char* node) = NULL;
+const char* (*js_sibling_node)(const char* node) = NULL;
+bool (*js_node_has_name)(
+		const char* node, const char* search, const char* empty_match
+		) = NULL;
+bool (*js_node_has_class)(
+		const char* node, const char* search, const char* empty_match
+		) = NULL;
+bool (*js_node_has_id)(
+		const char* node, const char* search, const char* empty_match
+		) = NULL;
+bool (*js_node_has_attribute)(
+		const char* node, const char* search, const char* empty_match
+		) = NULL;
+bool (*js_node_has_attribute_equal)(
+		const char* node, const char* search, const char* match) = NULL;
+bool (*js_node_has_attribute_dashmatch)(
+		const char* node, const char* search, const char* match) = NULL;
+bool (*js_node_has_attribute_includes)(
+		const char* node, const char* search, const char* match) = NULL;
+bool (*js_node_has_attribute_prefix)(
+		const char* node, const char* search, const char* match) = NULL;
+bool (*js_node_has_attribute_suffix)(
+		const char* node, const char* search, const char* match) = NULL;
+bool (*js_node_has_attribute_substring)(
+		const char* node, const char* search, const char* match) = NULL;
+bool (*js_node_is_root)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+int32_t (*js_node_count_siblings)(const char* node, bool same_name, bool after
+		) = NULL;
+bool (*js_node_is_empty)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_link)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_visited)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_hover)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_active)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_focus)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_enabled)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_disabled)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_checked)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_target)(
+		const char* node, const char* empty_search,
+		const char* empty_match) = NULL;
+bool (*js_node_is_lang)(
+		const char* node, const char* search, const char* empty_match
+		) = NULL;
+const int32_t (*js_ua_font_size)(void) = NULL;
+#define HANDLER_LEN 33;
+
+css_js_error set_handlers(uint32_t* ptr, size_t len) {
+	if (len != HANDLER_LEN)
+		return CSS_JS_HANDLER_LENGTH;
+
+	js_node_name = (const char* (*)(const char*)) ptr[0];
+	js_node_classes = (const char* (*)(const char*)) ptr[1];
+	js_node_id = (const char* (*)(const char*)) ptr[2];
+	js_named_ancestor_node = (const char* (*)(
+				const char*, const char*)) ptr[3];
+	js_named_parent_node = (const char* (*)(
+				const char*, const char*)) ptr[4];
+	js_named_sibling_node = (const char* (*)(
+				const char*, const char*)) ptr[5];
+	js_named_generic_sibling_node = (const char* (*)(
+				const char*, const char*)) ptr[6];
+	js_parent_node = (const char* (*)(const char*)) ptr[7];
+	js_sibling_node = (const char* (*)(const char*)) ptr[8];
+	js_node_has_name = (bool (*)(const char*, const char*, const char*))
+		ptr[9];
+	js_node_has_class = (bool (*)(const char*, const char*, const char*))
+		ptr[10];
+	js_node_has_id = (bool (*)(const char*, const char*, const char*))
+		ptr[11];
+	js_node_has_attribute = (bool (*)(const char*, const char*,
+				const char*)) ptr[12];
+	js_node_has_attribute_equal = (bool (*)(const char*, const char*,
+				const char*)) ptr[13];
+	js_node_has_attribute_dashmatch = (bool (*)(const char*, const char*,
+				const char*)) ptr[14];
+	js_node_has_attribute_includes = (bool (*)(const char*, const char*,
+				const char*)) ptr[15];
+	js_node_has_attribute_prefix = (bool (*)(const char*, const char*,
+				const char*)) ptr[16];
+	js_node_has_attribute_suffix = (bool (*)(const char*, const char*,
+				const char*)) ptr[17];
+	js_node_has_attribute_substring = (bool (*)(const char*, const char*,
+				const char*)) ptr[18];
+	js_node_is_root = (bool (*)(const char*, const char*, const char*))
+		ptr[19];
+	js_node_count_siblings = (int32_t (*)(const char*, bool, bool))
+		ptr[20];
+	js_node_is_empty = (bool (*)(const char*, const char*, const char*))
+		ptr[21];
+	js_node_is_link = (bool (*)(const char*, const char*, const char*))
+		ptr[22];
+	js_node_is_visited = (bool (*)(const char*, const char*, const char*))
+		ptr[23];
+	js_node_is_hover = (bool (*)(const char*, const char*, const char*))
+		ptr[24];
+	js_node_is_active = (bool (*)(const char*, const char*, const char*))
+		ptr[25];
+	js_node_is_focus = (bool (*)(const char*, const char*, const char*))
+		ptr[26];
+	js_node_is_enabled = (bool (*)(const char*, const char*, const char*))
+		ptr[27];
+	js_node_is_disabled = (bool (*)(const char*, const char*, const char*))
+		ptr[28];
+	js_node_is_checked = (bool (*)(const char*, const char*, const char*))
+		ptr[29];
+	js_node_is_target = (bool (*)(const char*, const char*, const char*))
+		ptr[30];
+	js_node_is_lang = (bool (*)(const char*, const char*, const char*))
+		ptr[31];
+	js_ua_font_size = (const int32_t (*)(void)) ptr[32];
+
+	return CSS_JS_OK;
+}
 
 css_select_ctx* select_ctx = NULL;
 
@@ -368,7 +518,7 @@ css_js_error get_style (const char* element,
 	return CSS_JS_OK;
 }
 
-const int UA_FONT_SIZE = js_ua_font_size();
+const int UA_FONT_SIZE = (*js_ua_font_size)();
 
 /**
  * Font size computation callback for libcss
@@ -600,7 +750,7 @@ css_error node_classes(void *pw, void *node,
 	const char* node_string = lwc_string_data(n);
 
 	/* This js function returns a stringified array of class strings */
-	const char* js_results = js_node_classes(node_string);
+	const char* js_results = (*js_node_classes)(node_string);
 
 	/* Bail out */
 	if (*js_results == NULL)
@@ -1020,7 +1170,7 @@ css_error node_count_siblings(void *pw, void *n, bool same_name,
 	lcw_string* node = n;
 	const char* node_string = lwc_string_data(n);
 
-	*count = (int32_t) js_node_count_siblings(
+	*count = (int32_t) (*js_node_count_siblings)(
 			node_string, same_name, after);
 	return CSS_OK;
 }
