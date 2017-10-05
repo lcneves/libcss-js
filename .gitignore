@@ -54,8 +54,5 @@ dkms.conf
 # Build dir
 build*
 
-# Bytecode files
-*.bc
-
 # History files
 *~

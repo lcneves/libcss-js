@@ -93,7 +93,7 @@
  *   returns a boolean: true if node has no children or text; otherwise false.
  */
 
-var lh = require('./libcss-handler.js');
+var lh = require('./lib/libcss-handler.js');
 
 var ch; //Client handler functions
 
@@ -487,11 +487,11 @@ module.exports.init = function (clientHandlers) {
   ch = clientHandlers;
 
   var handlerPtr = lh.malloc(
-    exportFunctions.length * Uint32Array.BYTES_PER_ELEMENT);
+    exportFunctions.length * Uint64Array.BYTES_PER_ELEMENT);
   for (let i = 0; i < exportFunctions.length; i++) {
     let funPtr = lh.Runtime.addFunction(exportFunctions[i]);
     lh.Module.setValue(
-      handlerPtr + i * Uint32Array.BYTES_PER_ELEMENT, funPtr, '*');
+      handlerPtr + i * Uint64Array.BYTES_PER_ELEMENT, funPtr, '*');
   }
 
   var err = lh.setHandlers(handlerPtr, handlerPtr.length);
@@ -513,7 +513,7 @@ module.exports.getStyle = function (node, pseudo) {
     }
   }
   else {
-    pseudo = '';
+    pseudo = 'none';
   }
 
   var inlineStyle = '';

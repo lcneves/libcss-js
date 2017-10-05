@@ -16,15 +16,38 @@
 #include <libcss/libcss.h>
 #include "libcss/test/dump_computed.h"
 
-css_error css_resolve_url(void *pw, const char *base,
+#define UNUSED(x) ((x) = (x))
+
+typedef enum css_js_error {
+	CSS_JS_OK             =  0,
+	CSS_JS_ELEMENT        =  1,
+	CSS_JS_PSEUDO         =  2,
+	CSS_JS_CREATE_CTX     =  3,
+	CSS_JS_CREATE_SHEET   =  4,
+	CSS_JS_CREATE_STYLE   =  5,
+	CSS_JS_DESTROY_CTX    =  6,
+	CSS_JS_DESTROY_SHEET  =  7,
+	CSS_JS_DESTROY_STYLE  =  8,
+	CSS_JS_APPEND_DATA    =  9,
+	CSS_JS_DATA_DONE      = 10,
+	CSS_JS_APPEND_SHEET   = 11,
+	CSS_JS_HANDLER_LENGTH = 12
+} css_js_error;
+
+css_error resolve_url(void *pw, const char *base,
 		lwc_string *rel, lwc_string **abs);
-void add_stylesheet (const char* css_string, const char* level,
+
+css_js_error reset_ctx();
+css_js_error add_stylesheet (const char* css_string, const char* level,
 		const char* charset, const char* url);
+css_js_error set_handlers(uint64_t* ptr, size_t len);
 
 static css_error node_name(void *pw, void *node, css_qname *qname);
 static css_error node_classes(void *pw, void *node,
 		lwc_string ***classes, uint32_t *n_classes);
 static css_error node_id(void *pw, void *node, lwc_string **id);
+static css_error named_ancestor_node(void *pw, void *node,
+		const css_qname *qname, void **ancestor);
 static css_error named_parent_node(void *pw, void *node,
 		const css_qname *qname, void **parent);
 static css_error named_sibling_node(void *pw, void *node,
@@ -64,6 +87,7 @@ static css_error node_count_siblings(void *pw, void *node,
 		bool same_name, bool after, int32_t *count);
 static css_error node_is_empty(void *pw, void *node, bool *match);
 static css_error node_is_link(void *pw, void *node, bool *match);
+static css_error node_is_visited(void *pw, void *node, bool *match);
 static css_error node_is_hover(void *pw, void *node, bool *match);
 static css_error node_is_active(void *pw, void *node, bool *match);
 static css_error node_is_focus(void *pw, void *node, bool *match);
@@ -81,22 +105,8 @@ static css_error set_libcss_node_data(void *pw, void *node,
 		void *libcss_node_data);
 static css_error get_libcss_node_data(void *pw, void *node,
 		void **libcss_node_data);
-
-typedef enum css_js_error {
-	CSS_JS_OK             =  0,
-	CSS_JS_ELEMENT        =  1,
-	CSS_JS_PSEUDO         =  2,
-	CSS_JS_CREATE_CTX     =  3,
-	CSS_JS_CREATE_SHEET   =  4,
-	CSS_JS_CREATE_STYLE   =  5,
-	CSS_JS_DESTROY_CTX    =  6,
-	CSS_JS_DESTROY_SHEET  =  7,
-	CSS_JS_DESTROY_STYLE  =  8,
-	CSS_JS_APPEND_DATA    =  9,
-	CSS_JS_DATA_DONE      = 10,
-	CSS_JS_APPEND_SHEET   = 11,
-	CSS_JS_HANDLER_LENGTH = 12
-} css_js_error;
+static css_error compute_font_size(void *pw, const css_hint *parent,
+		css_hint *size);
 
 /*
  * Pointers for handler functions to be received from the Javascript end.
@@ -176,10 +186,11 @@ bool (*js_node_is_target)(
 bool (*js_node_is_lang)(
 		const char* node, const char* search, const char* empty_match
 		) = NULL;
-const int32_t (*js_ua_font_size)(void) = NULL;
-#define HANDLER_LEN 33;
+int32_t (*js_ua_font_size)(void) = NULL;
+#define HANDLER_LEN 33
 
-css_js_error set_handlers(uint32_t* ptr, size_t len) {
+css_js_error set_handlers(uint64_t* ptr, size_t len)
+{
 	if (len != HANDLER_LEN)
 		return CSS_JS_HANDLER_LENGTH;
 
@@ -242,7 +253,7 @@ css_js_error set_handlers(uint32_t* ptr, size_t len) {
 		ptr[30];
 	js_node_is_lang = (bool (*)(const char*, const char*, const char*))
 		ptr[31];
-	js_ua_font_size = (const int32_t (*)(void)) ptr[32];
+	js_ua_font_size = (int32_t (*)(void)) ptr[32];
 
 	return CSS_JS_OK;
 }
@@ -298,15 +309,19 @@ css_error resolve_url(
 		void *pw, const char *base, lwc_string *rel, lwc_string **abs
 		)
 {
-	const char* base_str = base;
-	const size_t base_s = strlen(base);
-	const char* rel_str = lwc_string_data(rel_str);
+	UNUSED(pw);
+	size_t base_s = strlen(base);
+	char base_str[base_s];
+	strcpy(base_str, base);
+	if (base_str[base_s] == '/')
+		base_str[base_s] = '\0';
+
+	base_s = strlen(base_str);
+
+	const char* rel_str = lwc_string_data(rel);
 	const size_t rel_s = strlen(rel_str);
 
-	if (base_str[base_s] == "/")
-		base_str[base_s] = "\0";
-
-	char abs_str[base_s + rel_s + 2];
+	char abs_str[base_s + rel_s + 1];
 	strcpy(abs_str, base_str);
 	strcat(abs_str, "/");
 	strcat(abs_str, rel_str);
@@ -320,11 +335,17 @@ css_js_error reset_ctx()
 	css_error code;
 
 	if (select_ctx != NULL) {
-		for (uint32_t i = 0; i < ctx->n_sheets; ++i) {
-			code = css_stylesheet_destroy(ctx->sheets[index].sheet);
+		/*
+		 * Still not sure if need to destroy sheets in ctx.
+		 * Anyway, need to include header for css_select_ctx for this
+		 * to work.
+		for (uint32_t i = 0; i < select_ctx->n_sheets; ++i) {
+			code = css_stylesheet_destroy(
+					select_ctx->sheets[i].sheet);
 			if (code != CSS_OK)
 				return CSS_JS_DESTROY_SHEET;
 		}
+		*/
 
 		code = css_select_ctx_destroy(select_ctx);
 		if (code != CSS_OK)
@@ -357,7 +378,7 @@ css_js_error add_stylesheet (
 	else
 		css_level = CSS_LEVEL_3; /* Default */
 
-        const char* url = *url_str == "\0" ? NULL : url_str;
+        const char* url = *url_str == '\0' ? NULL : url_str;
 
 	css_stylesheet_params params;
 	params.params_version = CSS_STYLESHEET_PARAMS_VERSION_1;
@@ -384,8 +405,8 @@ css_js_error add_stylesheet (
 
 	code = css_stylesheet_append_data(
 			sheet,
-			(const uint8_t *) data,
-			sizeof data
+			(const uint8_t *) css_string,
+			sizeof css_string
 			);
 	if (code != CSS_OK && code != CSS_NEEDDATA)
 		return CSS_JS_APPEND_DATA;
@@ -423,13 +444,13 @@ css_js_error build_style(lwc_string* node,
 	css_error code;
 
 	const css_stylesheet* in_style;
-	if (inline_style == NULL || *inline_style == "\0")
+	if (inline_style == NULL || *inline_style == '\0')
 		in_style = NULL;
 	else
 	{
 		css_stylesheet_params params;
 		params.params_version = CSS_STYLESHEET_PARAMS_VERSION_1;
-		params.level = css_level;
+		params.level = CSS_LEVEL_3;
 		params.charset = "UTF-8";
 		params.url = NULL;
 		params.title = NULL;
@@ -454,7 +475,7 @@ css_js_error build_style(lwc_string* node,
 				(const uint8_t *) inline_style,
 				sizeof inline_style
 				);
-		if (code != CSS_OK && CODE != CSS_NEEDDATA)
+		if (code != CSS_OK && code != CSS_NEEDDATA)
 			return CSS_JS_APPEND_DATA;
 
 		code = css_stylesheet_data_done(sheet);
@@ -469,7 +490,7 @@ css_js_error build_style(lwc_string* node,
 			node,
 			CSS_MEDIA_SCREEN,
 			in_style,
-			selection_handler,
+			&selection_handler,
 			NULL,
 			results
 			);
@@ -492,13 +513,13 @@ css_js_error get_style (const char* element,
 	if (strcmp(pseudo, "none") == 0)
 		pseudo_code = CSS_PSEUDO_ELEMENT_NONE;
 	else if (strcmp(pseudo, "first-line") == 0)
-		pseudo_code = CSS_PSEUDO_FIRST_LINE;
+		pseudo_code = CSS_PSEUDO_ELEMENT_FIRST_LINE;
 	else if (strcmp(pseudo, "first-letter") == 0)
-		pseudo_code = CSS_PSEUDO_FIRST_LETTER;
+		pseudo_code = CSS_PSEUDO_ELEMENT_FIRST_LETTER;
 	else if (strcmp(pseudo, "before") == 0)
-		pseudo_code = CSS_PSEUDO_BEFORE;
+		pseudo_code = CSS_PSEUDO_ELEMENT_BEFORE;
 	else if (strcmp(pseudo, "after") == 0)
-		pseudo_code = CSS_PSEUDO_AFTER;
+		pseudo_code = CSS_PSEUDO_ELEMENT_AFTER;
 	else
 		return CSS_JS_PSEUDO;
 
@@ -537,6 +558,7 @@ const int UA_FONT_SIZE = (*js_ua_font_size)();
 css_error compute_font_size(void *pw, const css_hint *parent,
 		css_hint *size)
 {
+	UNUSED(pw);
 	/**
 	 * Table of font-size keyword scale factors
 	 *
@@ -626,7 +648,7 @@ css_error get_string (
 	const char* js_results =
 		(*js_fun)(node_string);
 
-	if (*js_results == "\0")
+	if (*js_results == '\0')
 	{
 		*ret = NULL;
 	}
@@ -637,6 +659,7 @@ css_error get_string (
 		*ret = lwc_string_ref(results);
 	}
 
+	free(js_results);
 	return CSS_OK;
 }
 
@@ -686,7 +709,7 @@ css_error match_string (
 	const char* js_results =
 		(*js_fun)(node_string, match_string);
 
-	if (*js_results == "\0")
+	if (*js_results == '\0')
 	{
 		*ret = NULL;
 	}
@@ -697,6 +720,7 @@ css_error match_string (
 		*ret = lwc_string_ref(results);
 	}
 
+	free(js_results);
 	return CSS_OK;
 }
 
@@ -726,6 +750,7 @@ css_error match_string (
  */
 css_error node_name(void *pw, void *node, css_qname *qname)
 {
+	UNUSED(pw);
 	/*  set_namespace(qname, "names"); *Is this needed? */
 
 	return get_string(node, js_node_name, &(qname->name));
@@ -748,6 +773,7 @@ css_error node_name(void *pw, void *node, css_qname *qname)
 css_error node_classes(void *pw, void *node,
 		lwc_string ***classes, uint32_t *n_classes)
 {
+	UNUSED(pw);
 	lwc_string* n = (lwc_string*) node;
 	const char* node_string = lwc_string_data(n);
 
@@ -759,6 +785,7 @@ css_error node_classes(void *pw, void *node,
 	{
 		*classes = NULL;
 		*n_classes = 0;
+		free(js_results);
 		return CSS_OK;
 	}
 
@@ -766,7 +793,7 @@ css_error node_classes(void *pw, void *node,
 	uint32_t n = 1;
 	while(*current_c != NULL)
 	{
-		if (*(++current_c) == ",")
+		if (*(++current_c) == ',')
 			++n;
 	}
 
@@ -789,7 +816,7 @@ css_error node_classes(void *pw, void *node,
 			case ",":
 			case "]":
 				current_c += ++offset;
-				current_class[offset] = "\0";
+				current_class[offset] = '\0';
 				offset = 0;
 				lwc_string* class_name;
 				lwc_intern_string(
@@ -809,6 +836,8 @@ css_error node_classes(void *pw, void *node,
 
 	*classes = ptr_array;
 	*n_classes = n;
+
+	free(js_results);
 	return CSS_OK;
 }
 
@@ -823,6 +852,7 @@ css_error node_classes(void *pw, void *node,
  */
 css_error node_id(void *pw, void *node, lwc_string **id)
 {
+	UNUSED(pw);
 	return get_string(node, js_node_id, id);
 }
 
@@ -840,6 +870,7 @@ css_error node_id(void *pw, void *node, lwc_string **id)
 css_error named_ancestor_node(void *pw, void *node,
 		const css_qname *qname, void **ancestor)
 {
+	UNUSED(pw);
 	return match_string(
 			node, qname->name, js_named_ancestor_node, ancestor);
 }
@@ -858,6 +889,7 @@ css_error named_ancestor_node(void *pw, void *node,
 css_error named_parent_node(void *pw, void *node,
 		const css_qname *qname, void **parent)
 {
+	UNUSED(pw);
 	return match_string(node, qname->name, js_named_parent_node, ancestor);
 }
 
@@ -878,6 +910,7 @@ css_error named_parent_node(void *pw, void *node,
 css_error named_sibling_node(void *pw, void *node,
 		const css_qname *qname, void **sibling)
 {
+	UNUSED(pw);
 	return match_string(node, qname->name, js_named_sibling_node, sibling);
 }
 
@@ -898,8 +931,8 @@ css_error named_sibling_node(void *pw, void *node,
 css_error named_generic_sibling_node(void *pw, void *node,
 		const css_qname *qname, void **sibling)
 {
-	return
-		match_string(node, qname->name,
+	UNUSED(pw);
+	return match_string(node, qname->name,
 				js_named_generic_sibling_node, sibling);
 }
 
@@ -915,6 +948,7 @@ css_error named_generic_sibling_node(void *pw, void *node,
  */
 css_error parent_node(void *pw, void *node, void **parent)
 {
+	UNUSED(pw);
 	return get_string(node, js_parent_node, parent);
 }
 
@@ -930,6 +964,7 @@ css_error parent_node(void *pw, void *node, void **parent)
  */
 css_error sibling_node(void *pw, void *node, void **sibling)
 {
+	UNUSED(pw);
 	return get_string(node, js_sibling_node, sibling);
 }
 
@@ -949,6 +984,7 @@ css_error sibling_node(void *pw, void *node, void **sibling)
 css_error node_has_name(void *pw, void *node,
 		const css_qname *qname, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, qname->name, NULL, js_node_has_name, match);
 }
 
@@ -966,6 +1002,7 @@ css_error node_has_name(void *pw, void *node,
 css_error node_has_class(void *pw, void *node,
 		lwc_string *name, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, name, NULL, js_node_has_class, match);
 }
 
@@ -983,6 +1020,7 @@ css_error node_has_class(void *pw, void *node,
 css_error node_has_id(void *pw, void *node,
 		lwc_string *name, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, name, NULL, js_node_has_id, match);
 }
 
@@ -1001,6 +1039,7 @@ css_error node_has_id(void *pw, void *node,
 css_error node_has_attribute(void *pw, void *node,
 		const css_qname *qname, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, qname->name, NULL,
 			js_node_has_attribute, match);
 }
@@ -1022,6 +1061,7 @@ css_error node_has_attribute_equal(void *pw, void *node,
 		const css_qname *qname, lwc_string *value,
 		bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, qname->name,
 			value, js_node_has_attribute_equal, match);
 }
@@ -1047,6 +1087,7 @@ css_error node_has_attribute_dashmatch(void *pw, void *node,
 		const css_qname *qname, lwc_string *value,
 		bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, qname->name, value,
 			js_node_has_attribute_dashmatch, match);
 }
@@ -1069,6 +1110,7 @@ css_error node_has_attribute_includes(void *pw, void *node,
 		const css_qname *qname, lwc_string *value,
 		bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, qname->name, value,
 			js_node_has_attribute_includes, match);
 }
@@ -1091,6 +1133,7 @@ css_error node_has_attribute_prefix(void *pw, void *node,
 		const css_qname *qname, lwc_string *value,
 		bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, qname->name, value,
 			js_node_has_attribute_prefix, match);
 }
@@ -1113,6 +1156,7 @@ css_error node_has_attribute_suffix(void *pw, void *node,
 		const css_qname *qname, lwc_string *value,
 		bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, qname->name, value,
 			js_node_has_attribute_suffix, match);
 }
@@ -1135,6 +1179,7 @@ css_error node_has_attribute_substring(void *pw, void *node,
 		const css_qname *qname, lwc_string *value,
 		bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, qname->name, value,
 			js_node_has_attribute_substring, match);
 }
@@ -1151,6 +1196,7 @@ css_error node_has_attribute_substring(void *pw, void *node,
  */
 css_error node_is_root(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_root, match);
 }
 
@@ -1169,6 +1215,7 @@ css_error node_is_root(void *pw, void *node, bool *match)
 css_error node_count_siblings(void *pw, void *n, bool same_name,
 		bool after, int32_t *count)
 {
+	UNUSED(pw);
 	lcw_string* node = n;
 	const char* node_string = lwc_string_data(n);
 
@@ -1189,6 +1236,7 @@ css_error node_count_siblings(void *pw, void *n, bool same_name,
  */
 css_error node_is_empty(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_empty, match);
 }
 
@@ -1206,6 +1254,7 @@ css_error node_is_empty(void *pw, void *node, bool *match)
  */
 css_error node_is_link(void *pw, void *n, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_link, match);
 }
 
@@ -1222,6 +1271,7 @@ css_error node_is_link(void *pw, void *n, bool *match)
  */
 css_error node_is_visited(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_visited, match);
 }
 
@@ -1237,6 +1287,7 @@ css_error node_is_visited(void *pw, void *node, bool *match)
  */
 css_error node_is_hover(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_hover, match);
 }
 
@@ -1252,6 +1303,7 @@ css_error node_is_hover(void *pw, void *node, bool *match)
  */
 css_error node_is_active(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_active, match);
 }
 
@@ -1267,6 +1319,7 @@ css_error node_is_active(void *pw, void *node, bool *match)
  */
 css_error node_is_focus(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_focus, match);
 }
 
@@ -1282,6 +1335,7 @@ css_error node_is_focus(void *pw, void *node, bool *match)
  */
 css_error node_is_enabled(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_enabled, match);
 }
 
@@ -1297,6 +1351,7 @@ css_error node_is_enabled(void *pw, void *node, bool *match)
  */
 css_error node_is_disabled(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_disabled, match);
 }
 
@@ -1312,6 +1367,7 @@ css_error node_is_disabled(void *pw, void *node, bool *match)
  */
 css_error node_is_checked(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_checked, match);
 }
 
@@ -1327,6 +1383,7 @@ css_error node_is_checked(void *pw, void *node, bool *match)
  */
 css_error node_is_target(void *pw, void *node, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_target, match);
 }
 
@@ -1344,6 +1401,7 @@ css_error node_is_target(void *pw, void *node, bool *match)
 css_error node_is_lang(void *pw, void *node,
 		lwc_string *lang, bool *match)
 {
+	UNUSED(pw);
 	return match_bool(node, lang, NULL, js_node_is_lang, match);
 }
 
@@ -1353,6 +1411,7 @@ css_error node_is_lang(void *pw, void *node,
 css_error node_presentational_hint(void *pw, void *node,
 		uint32_t *nhints, css_hint **hints)
 {
+	UNUSED(pw);
 	/*
 	 * TODO: Maybe implement presentational hints,
 	 * when we find out what it means?
@@ -1373,6 +1432,7 @@ css_error node_presentational_hint(void *pw, void *node,
  */
 css_error ua_default_for_property(void *pw, uint32_t property, css_hint *hint)
 {
+	UNUSED(pw);
 	if (property == CSS_PROP_COLOR) {
 		hint->data.color = 0xff000000;
 		hint->status = CSS_COLOR_COLOR;
@@ -1465,12 +1525,14 @@ void update_node_data (lwc_string* id, void* new_data)
 
 css_error set_libcss_node_data(void *pw, void *node, void *libcss_node_data)
 {
+	UNUSED(pw);
 	update_node_data((lwc_string*) node, libcss_node_data);
 	return CSS_OK;
 }
 
 css_error get_libcss_node_data(void *pw, void *node, void **libcss_node_data)
 {
+	UNUSED(pw);
 	node_data* nd = get_node_data_by_id((lwc_string*) node);
 	*libcss_node_data = *nd == NULL ? NULL : nd->data;
 	return CSS_OK;
