@@ -93,11 +93,11 @@
  *   returns a boolean: true if node has no children or text; otherwise false.
  */
 
-var lh = require('./lib/libcss-handler.js');
+var lh = require('./lib/libcss-js.js');
 
 var ch; //Client handler functions
 
-const DEFAULT_FONT_SIZE = 16;
+const DEFAULT_FONT_SIZE = 160;
 
 const error = [
   'OK',
@@ -109,6 +109,7 @@ const error = [
   'Unable to destroy selection context!',
   'Unable to destroy stylesheet!',
   'Unable to destroy computed style for element!',
+  'Invalid CSS level!',
   'Unable to append data to stylesheet!',
   'Unable to declare the data on the stylesheet as done!',
   'Unable to append stylesheet to selection context!',
@@ -117,16 +118,8 @@ const error = [
 
 function free(...args) {
   for (let arg in args) {
-    lh.free(arg);
+    lh.Module._free(arg);
   }
-}
-
-function getString (chFun) {
-  var nodeId = lh.Pointer_stringify(node);
-  var results = chFun(nodeId);
-  var ptr = allocate(
-    lh.Module.intArrayFromString(results), 'i8', lh.Module.ALLOC_NORMAL);
-  return ptr;
 }
 
 function getSelfIndex(identifier, siblings) {
@@ -169,35 +162,43 @@ function optionalHandler (node, chFun) {
   if (typeof chFun !== 'function') {
     return false;
   }
-  var nodeId = lh.Pointer_stringify(node);
+  var nodeId = lh.Module.Pointer_stringify(node);
   return chFun(nodeId);
 }
 
 function pointerize (results) {
-  var ptr = allocate(
-    ch.Module.intArrayFromString(results), 'i8', ch.Module.ALLOC_NORMAL);
+  var ptr = lh.Module.allocate(
+    lh.Module.intArrayFromString(results), 'i8', lh.Module.ALLOC_NORMAL);
   return ptr;
 }
 
 var exportFunctions = [
   function js_node_name (node) {
-    return getString(ch.getTagName);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var tagName = ch.getTagName(nodeId);
+    return pointerize(tagName);
   },
   function js_node_classes(node) {
-    var nodeId = lh.Pointer_stringify(node);
+    var nodeId = lh.Module.Pointer_stringify(node);
     var results = ch.getAttributes(nodeId);
-    var classes = JSON.Stringify(getClasses(nodeId));
+    var classes = JSON.stringify(getClasses(nodeId));
     return pointerize(classes);
   },
   function js_node_id(node) {
-    var nodeId = lh.Pointer_stringify(node);
+    var nodeId = lh.Module.Pointer_stringify(node);
     var results = ch.getAttributes(nodeId);
-    var id = results['id'] ? results['id'] : '';
+    var id = '';
+    for (let attribute of results) {
+      if (attribute.attribute.toLowerCase() === 'id') {
+        id = attribute.value;
+        break;
+      }
+    }
     return pointerize(id);
   },
   function js_named_ancestor_node(node, ancestor) {
-    var nodeId = lh.Pointer_stringify(node);
-    var ancestorName = lh.Pointer_stringify(ancestor);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var ancestorName = lh.Module.Pointer_stringify(ancestor);
     var results = '';
     var ancestors = ch.getAncestors(nodeId);
     for (let ancestor of ancestors) {
@@ -209,8 +210,8 @@ var exportFunctions = [
     return pointerize(results);
   },
   function js_named_parent_node(node, parent) {
-    var nodeId = lh.Pointer_stringify(node);
-    var parentName = lh.Pointer_stringify(parent);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var parentName = lh.Module.Pointer_stringify(parent);
     var results = '';
     var ancestors = ch.getAncestors(nodeId);
     if (ancestors[0] && ancestors[0].tagName === parentName) {
@@ -219,8 +220,8 @@ var exportFunctions = [
     return pointerize(results);
   },
   function js_named_sibling_node(node, sibling) {
-    var nodeId = lh.Pointer_stringify(node);
-    var siblingName = lh.Pointer_stringify(sibling);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var siblingName = lh.Module.Pointer_stringify(sibling);
     var results = '';
     var siblings = ch.getSiblings(nodeId);
     var prevSibling = getPrevSibling(nodeId, siblings);
@@ -230,8 +231,8 @@ var exportFunctions = [
     return pointerize(results);
   },
   function js_named_generic_sibling_node(node, sibling) {
-    var nodeId = lh.Pointer_stringify(node);
-    var siblingName = lh.Pointer_stringify(sibling);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var siblingName = lh.Module.Pointer_stringify(sibling);
     var results = '';
     var siblings = ch.getSiblings(nodeId);
     for (let sibling of siblings) {
@@ -243,7 +244,7 @@ var exportFunctions = [
     return pointerize(results);
   },
   function js_parent_node(node) {
-    var nodeId = lh.Pointer_stringify(node);
+    var nodeId = lh.Module.Pointer_stringify(node);
     var results = '';
     var ancestors = ch.getAncestors(nodeId);
     if (ancestors[0]) {
@@ -252,7 +253,7 @@ var exportFunctions = [
     return pointerize(results);
   },
   function js_sibling_node(node) {
-    var nodeId = lh.Pointer_stringify(node);
+    var nodeId = lh.Module.Pointer_stringify(node);
     var results = '';
     var siblings = ch.getSiblings(nodeId);
     var prevSibling = getPrevSibling(nodeId, siblings);
@@ -262,14 +263,14 @@ var exportFunctions = [
     return pointerize(results);
   },
   function js_node_has_name(node, search, empty_match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search).toLowerCase();
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search).toLowerCase();
     var results = ch.getTagName(nodeId).toLowerCase();
     return query === results;
   },
   function js_node_has_class(node, search, empty_match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search).toLowerCase();
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search).toLowerCase();
     var classes = getClasses(nodeId);
     for (let className of classes) {
       if (className.toLowerCase() === query) {
@@ -279,8 +280,8 @@ var exportFunctions = [
     return false;
   },
   function js_node_has_id(node, search, empty_match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search).toLowerCase();
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search).toLowerCase();
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === 'id' &&
@@ -291,8 +292,8 @@ var exportFunctions = [
     return false;
   },
   function js_node_has_attribute(node, search, empty_match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search).toLowerCase();
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search).toLowerCase();
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === query) {
@@ -302,9 +303,9 @@ var exportFunctions = [
     return false;
   },
   function js_node_has_attribute_equal(node, search, match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search);
-    var value = lh.Pointer_stringify(match);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search);
+    var value = lh.Module.Pointer_stringify(match);
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === query &&
@@ -315,9 +316,9 @@ var exportFunctions = [
     return false;
   },
   function js_node_has_attribute_dashmatch(node, search, match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search);
-    var value = lh.Pointer_stringify(match);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search);
+    var value = lh.Module.Pointer_stringify(match);
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === query &&
@@ -329,9 +330,9 @@ var exportFunctions = [
     return false;
   },
   function js_node_has_attribute_includes(node, search, match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search);
-    var value = lh.Pointer_stringify(match);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search);
+    var value = lh.Module.Pointer_stringify(match);
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === query &&
@@ -342,9 +343,9 @@ var exportFunctions = [
     return false;
   },
   function js_node_has_attribute_prefix(node, search, match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search);
-    var value = lh.Pointer_stringify(match);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search);
+    var value = lh.Module.Pointer_stringify(match);
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === query &&
@@ -355,9 +356,9 @@ var exportFunctions = [
     return false;
   },
   function js_node_has_attribute_suffix(node, search, match) {
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search);
-    var value = lh.Pointer_stringify(match);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search);
+    var value = lh.Module.Pointer_stringify(match);
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === query &&
@@ -369,9 +370,9 @@ var exportFunctions = [
   },
   function js_node_has_attribute_substring(node, search, match) {
     // I don't see the difference between this and has_attribute_includes
-    var nodeId = lh.Pointer_stringify(node);
-    var query = lh.Pointer_stringify(search);
-    var value = lh.Pointer_stringify(match);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var query = lh.Module.Pointer_stringify(search);
+    var value = lh.Module.Pointer_stringify(match);
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === query &&
@@ -382,12 +383,12 @@ var exportFunctions = [
     return false;
   },
   function js_node_is_root(node, empty_search, empty_match) {
-    var nodeId = lh.Pointer_stringify(node);
+    var nodeId = lh.Module.Pointer_stringify(node);
     var ancestors = ch.getAncestors(nodeId);
     return ancestors[0] === undefined;
   },
   function js_node_count_siblings(node, same_name, after) {
-    var nodeId = lh.Pointer_stringify(node);
+    var nodeId = lh.Module.Pointer_stringify(node);
     var siblings = getSiblings(nodeId);
     var selfIndex = getSelfIndex(nodeId, siblings);
     if (same_name) {
@@ -414,11 +415,11 @@ var exportFunctions = [
     }
   },
   function js_node_is_empty(node, empty_search, empty_match) {
-    var nodeId = lh.Pointer_stringify(node);
+    var nodeId = lh.Module.Pointer_stringify(node);
     return ch.isEmpty(nodeId);
   },
   function js_node_is_link(node, empty_search, empty_match) {
-    var nodeId = lh.Pointer_stringify(node);
+    var nodeId = lh.Module.Pointer_stringify(node);
     if (ch.getTagName(nodeId).toLowerCase() !== 'a') {
       return false;
     }
@@ -459,8 +460,8 @@ var exportFunctions = [
     if (typeof ch.isLang !== 'function') {
       return false;
     }
-    var nodeId = lh.Pointer_stringify(node);
-    var language = lh.Pointer_stringify(search);
+    var nodeId = lh.Module.Pointer_stringify(node);
+    var language = lh.Module.Pointer_stringify(search);
     return ch.isLang(nodeId, language);
   },
   function js_ua_font_size() {
@@ -486,15 +487,16 @@ module.exports.init = function (clientHandlers) {
   }
   ch = clientHandlers;
 
-  var handlerPtr = lh.malloc(
-    exportFunctions.length * Uint64Array.BYTES_PER_ELEMENT);
+  // Function pointers should be 64-bit.
+  var handlerPtr = lh.Module._malloc(
+    exportFunctions.length * Uint32Array.BYTES_PER_ELEMENT * 2);
   for (let i = 0; i < exportFunctions.length; i++) {
     let funPtr = lh.Runtime.addFunction(exportFunctions[i]);
     lh.Module.setValue(
-      handlerPtr + i * Uint64Array.BYTES_PER_ELEMENT, funPtr, '*');
+      handlerPtr + i * Uint32Array.BYTES_PER_ELEMENT * 2, funPtr, '*');
   }
 
-  var err = lh.setHandlers(handlerPtr, handlerPtr.length);
+  var err = lh.setHandlers(handlerPtr, exportFunctions.length);
   if (error[err] !== 'OK') {
     throw new Error(error[err]);
   };
@@ -526,10 +528,10 @@ module.exports.getStyle = function (node, pseudo) {
   }
 
   const resultsLength = 8192; // Same as in libcss's selection test.
-  var resultsPtr = lh.malloc(resultsLength);
+  var resultsPtr = lh.Module._malloc(resultsLength);
   var nodePtr = pointerize(node);
   var pseudoPtr = pointerize(pseudo);
-  var inlinePtr = pointerize(style);
+  var inlinePtr = pointerize(inlineStyle);
 
   var err = lh.getStyle(
     nodePtr, pseudoPtr, inlinePtr, resultsPtr, resultsLength);
@@ -538,37 +540,37 @@ module.exports.getStyle = function (node, pseudo) {
     throw new Error(error[err]);
   }
 
-  var results = lh.Pointer_stringify(resultsPtr);
+  var results = lh.Module.Pointer_stringify(resultsPtr);
   free(nodePtr, pseudoPtr, inlinePtr, resultsPtr);
 
   var resultsArr = results.split('\n');
   var resultsObj = {};
-  for (let line of resultsArray) {
+  for (let line of resultsArr) {
     let colon = line.indexOf(':');
-    let prop = line.substring(0, colon).trim();
-    let value = line.substring(colon + 1).trim();
-    resultsObj[prop] = value;
+    if (colon > 0) {
+      let prop = line.substring(0, colon).trim();
+      let value = line.substring(colon + 1).trim();
+      resultsObj[prop] = value;
+    }
   }
 
   return resultsObj;
 }
 
 module.exports.addSheet = function (sheet, options) {
-  if (typeof node !== 'string')
+  if (typeof sheet !== 'string')
     throw new Error('Argument must be a string!');
 
   if (options === null || typeof options !== 'object') options = {};
   if (typeof options.level !== 'string') options.level = '3';
-  if (typeof options.charset !== 'string') options.charset = 'UTF-8';
   if (typeof options.url !== 'string') options.url = '';
 
   var sheetPtr = pointerize(sheet);
   var levelPtr = pointerize(options.level);
-  var charsetPtr = pointerize(options.charset);
-  var urlPtr = pointerize(url);
+  var urlPtr = pointerize(options.url);
 
-  var err = lh.addStylesheet(sheetPtr, levelPtr, charsetPtr, urlPtr);
-  free(sheetPtr, levelPtr, charsetPtr, urlPtr);
+  var err = lh.addSheet(sheetPtr, levelPtr, urlPtr);
+  free(sheetPtr, levelPtr, urlPtr);
 
   if (error[err] !== 'OK')
     throw new Error(error[err]);

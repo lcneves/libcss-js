@@ -1,5 +1,5 @@
 /*
- * libcss-handler.c
+ * libcss-js.c
  * Copyright 2017 Lucas Neves <lcneves@gmail.com>
  *
  * Handler functions for libcss.
@@ -15,32 +15,12 @@
 
 #include <libcss/libcss.h>
 #include "libcss/test/dump_computed.h"
+#include "libcss-js.h"
 
 #define UNUSED(x) ((x) = (x))
 
-typedef enum css_js_error {
-	CSS_JS_OK             =  0,
-	CSS_JS_ELEMENT        =  1,
-	CSS_JS_PSEUDO         =  2,
-	CSS_JS_CREATE_CTX     =  3,
-	CSS_JS_CREATE_SHEET   =  4,
-	CSS_JS_CREATE_STYLE   =  5,
-	CSS_JS_DESTROY_CTX    =  6,
-	CSS_JS_DESTROY_SHEET  =  7,
-	CSS_JS_DESTROY_STYLE  =  8,
-	CSS_JS_APPEND_DATA    =  9,
-	CSS_JS_DATA_DONE      = 10,
-	CSS_JS_APPEND_SHEET   = 11,
-	CSS_JS_HANDLER_LENGTH = 12
-} css_js_error;
-
 css_error resolve_url(void *pw, const char *base,
 		lwc_string *rel, lwc_string **abs);
-
-css_js_error reset_ctx();
-css_js_error add_stylesheet (const char* css_string, const char* level,
-		const char* charset, const char* url);
-css_js_error set_handlers(uint64_t* ptr, size_t len);
 
 static css_error node_name(void *pw, void *node, css_qname *qname);
 static css_error node_classes(void *pw, void *node,
@@ -111,19 +91,19 @@ static css_error compute_font_size(void *pw, const css_hint *parent,
 /*
  * Pointers for handler functions to be received from the Javascript end.
  */
-const char* (*js_node_name)(const char* node) = NULL;
-const char* (*js_node_classes)(const char* node) = NULL;
-const char* (*js_node_id)(const char* node) = NULL;
-const char* (*js_named_ancestor_node)(const char* node, const char* ancestor)
+char* (*js_node_name)(const char* node) = NULL;
+char* (*js_node_classes)(const char* node) = NULL;
+char* (*js_node_id)(const char* node) = NULL;
+char* (*js_named_ancestor_node)(const char* node, const char* ancestor)
 	= NULL;
-const char* (*js_named_parent_node)(const char* node, const char* parent)
+char* (*js_named_parent_node)(const char* node, const char* parent)
 	= NULL;
-const char* (*js_named_sibling_node)(const char* node, const char* sibling)
+char* (*js_named_sibling_node)(const char* node, const char* sibling)
 	= NULL;
-const char* (*js_named_generic_sibling_node)(
+char* (*js_named_generic_sibling_node)(
 		const char* node, const char* sibling) = NULL;
-const char* (*js_parent_node)(const char* node) = NULL;
-const char* (*js_sibling_node)(const char* node) = NULL;
+char* (*js_parent_node)(const char* node) = NULL;
+char* (*js_sibling_node)(const char* node) = NULL;
 bool (*js_node_has_name)(
 		const char* node, const char* search, const char* empty_match
 		) = NULL;
@@ -189,71 +169,71 @@ bool (*js_node_is_lang)(
 int32_t (*js_ua_font_size)(void) = NULL;
 #define HANDLER_LEN 33
 
-css_js_error set_handlers(uint64_t* ptr, size_t len)
+css_js_error set_handlers(uint64_t* arr, size_t len)
 {
 	if (len != HANDLER_LEN)
 		return CSS_JS_HANDLER_LENGTH;
 
-	js_node_name = (const char* (*)(const char*)) ptr[0];
-	js_node_classes = (const char* (*)(const char*)) ptr[1];
-	js_node_id = (const char* (*)(const char*)) ptr[2];
-	js_named_ancestor_node = (const char* (*)(
-				const char*, const char*)) ptr[3];
-	js_named_parent_node = (const char* (*)(
-				const char*, const char*)) ptr[4];
-	js_named_sibling_node = (const char* (*)(
-				const char*, const char*)) ptr[5];
-	js_named_generic_sibling_node = (const char* (*)(
-				const char*, const char*)) ptr[6];
-	js_parent_node = (const char* (*)(const char*)) ptr[7];
-	js_sibling_node = (const char* (*)(const char*)) ptr[8];
+	js_node_name = (char* (*)(const char*)) arr[0];
+	js_node_classes = (char* (*)(const char*)) arr[1];
+	js_node_id = (char* (*)(const char*)) arr[2];
+	js_named_ancestor_node = (char* (*)(
+				const char*, const char*)) arr[3];
+	js_named_parent_node = (char* (*)(
+				const char*, const char*)) arr[4];
+	js_named_sibling_node = (char* (*)(
+				const char*, const char*)) arr[5];
+	js_named_generic_sibling_node = (char* (*)(
+				const char*, const char*)) arr[6];
+	js_parent_node = (char* (*)(const char*)) arr[7];
+	js_sibling_node = (char* (*)(const char*)) arr[8];
 	js_node_has_name = (bool (*)(const char*, const char*, const char*))
-		ptr[9];
+		arr[9];
 	js_node_has_class = (bool (*)(const char*, const char*, const char*))
-		ptr[10];
+		arr[10];
 	js_node_has_id = (bool (*)(const char*, const char*, const char*))
-		ptr[11];
+		arr[11];
 	js_node_has_attribute = (bool (*)(const char*, const char*,
-				const char*)) ptr[12];
+				const char*)) arr[12];
 	js_node_has_attribute_equal = (bool (*)(const char*, const char*,
-				const char*)) ptr[13];
+				const char*)) arr[13];
 	js_node_has_attribute_dashmatch = (bool (*)(const char*, const char*,
-				const char*)) ptr[14];
+				const char*)) arr[14];
 	js_node_has_attribute_includes = (bool (*)(const char*, const char*,
-				const char*)) ptr[15];
+				const char*)) arr[15];
 	js_node_has_attribute_prefix = (bool (*)(const char*, const char*,
-				const char*)) ptr[16];
+				const char*)) arr[16];
 	js_node_has_attribute_suffix = (bool (*)(const char*, const char*,
-				const char*)) ptr[17];
+				const char*)) arr[17];
 	js_node_has_attribute_substring = (bool (*)(const char*, const char*,
-				const char*)) ptr[18];
+				const char*)) arr[18];
 	js_node_is_root = (bool (*)(const char*, const char*, const char*))
-		ptr[19];
+		arr[19];
 	js_node_count_siblings = (int32_t (*)(const char*, bool, bool))
-		ptr[20];
+		arr[20];
 	js_node_is_empty = (bool (*)(const char*, const char*, const char*))
-		ptr[21];
+		arr[21];
 	js_node_is_link = (bool (*)(const char*, const char*, const char*))
-		ptr[22];
+		arr[22];
 	js_node_is_visited = (bool (*)(const char*, const char*, const char*))
-		ptr[23];
+		arr[23];
 	js_node_is_hover = (bool (*)(const char*, const char*, const char*))
-		ptr[24];
+		arr[24];
 	js_node_is_active = (bool (*)(const char*, const char*, const char*))
-		ptr[25];
+		arr[25];
 	js_node_is_focus = (bool (*)(const char*, const char*, const char*))
-		ptr[26];
+		arr[26];
 	js_node_is_enabled = (bool (*)(const char*, const char*, const char*))
-		ptr[27];
+		arr[27];
 	js_node_is_disabled = (bool (*)(const char*, const char*, const char*))
-		ptr[28];
+		arr[28];
 	js_node_is_checked = (bool (*)(const char*, const char*, const char*))
-		ptr[29];
+		arr[29];
 	js_node_is_target = (bool (*)(const char*, const char*, const char*))
-		ptr[30];
+		arr[30];
 	js_node_is_lang = (bool (*)(const char*, const char*, const char*))
-		ptr[31];
-	js_ua_font_size = (int32_t (*)(void)) ptr[32];
+		arr[31];
+	js_ua_font_size = (int32_t (*)(void)) arr[32];
 
 	return CSS_JS_OK;
 }
@@ -362,8 +342,7 @@ css_js_error reset_ctx()
 css_js_error add_stylesheet (
 		const char* css_string,
 		const char* level,
-		const char* charset,
-		const char* url_str
+		const char* url
 		)
 {
 	css_error code;
@@ -375,18 +354,18 @@ css_js_error add_stylesheet (
 		css_level = CSS_LEVEL_2;
 	else if (strcmp(level, "2.1") == 0)
 		css_level = CSS_LEVEL_21;
+	else if (strcmp(level, "3") == 0)
+		css_level = CSS_LEVEL_3;
 	else
-		css_level = CSS_LEVEL_3; /* Default */
-
-        const char* url = *url_str == '\0' ? NULL : url_str;
+		return CSS_JS_LEVEL;
 
 	css_stylesheet_params params;
 	params.params_version = CSS_STYLESHEET_PARAMS_VERSION_1;
 	params.level = css_level;
-	params.charset = charset;
+	params.charset = NULL;
 	params.url = url;
 	params.title = NULL;
-	params.allow_quirks = false;
+	params.allow_quirks = true;
 	params.inline_style = false;
 	params.resolve = resolve_url;
 	params.resolve_pw = NULL;
@@ -451,12 +430,12 @@ css_js_error build_style(lwc_string* node,
 		css_stylesheet_params params;
 		params.params_version = CSS_STYLESHEET_PARAMS_VERSION_1;
 		params.level = CSS_LEVEL_3;
-		params.charset = "UTF-8";
-		params.url = NULL;
+		params.charset = NULL;
+		params.url = "";
 		params.title = NULL;
-		params.allow_quirks = false;
+		params.allow_quirks = true;
 		params.inline_style = true;
-		params.resolve = NULL;
+		params.resolve = resolve_url;
 		params.resolve_pw = NULL;
 		params.import = NULL;
 		params.import_pw = NULL;
@@ -483,6 +462,12 @@ css_js_error build_style(lwc_string* node,
 			return CSS_JS_DATA_DONE;
 
 		in_style = sheet;
+	}
+
+	if (select_ctx == NULL) {
+		css_js_error js_error = reset_ctx();
+		if (js_error != CSS_JS_OK)
+			return js_error;
 	}
 
 	code = css_select_style(
@@ -541,7 +526,6 @@ css_js_error get_style (const char* element,
 	return CSS_JS_OK;
 }
 
-const int UA_FONT_SIZE = (*js_ua_font_size)();
 
 /**
  * Font size computation callback for libcss
@@ -559,6 +543,7 @@ css_error compute_font_size(void *pw, const css_hint *parent,
 		css_hint *size)
 {
 	UNUSED(pw);
+	int32_t ua_font_size = (*js_ua_font_size)();
 	/**
 	 * Table of font-size keyword scale factors
 	 *
@@ -579,7 +564,7 @@ css_error compute_font_size(void *pw, const css_hint *parent,
 	/* Grab parent size, defaulting to medium if none */
 	if (parent == NULL) {
 		parent_size.value = FDIV(FMUL(factors[CSS_FONT_SIZE_MEDIUM - 1],
-					INTTOFIX(UA_FONT_SIZE)),
+					INTTOFIX(ua_font_size)),
 				INTTOFIX(10));
 		parent_size.unit = CSS_UNIT_PT;
 	} else {
@@ -596,7 +581,7 @@ css_error compute_font_size(void *pw, const css_hint *parent,
 	if (size->status < CSS_FONT_SIZE_LARGER) {
 		/* Keyword -- simple */
 		size->data.length.value = FDIV(FMUL(factors[size->status - 1],
-					INTTOFIX(UA_FONT_SIZE)), F_10);
+					INTTOFIX(ua_font_size)), F_10);
 		size->data.length.unit = CSS_UNIT_PT;
 	} else if (size->status == CSS_FONT_SIZE_LARGER) {
 		/** \todo Step within table, if appropriate */
@@ -630,22 +615,19 @@ css_error compute_font_size(void *pw, const css_hint *parent,
 	return CSS_OK;
 }
 
-lwc_string* NULL_STR;
-lwc_intern_string("", 0, &NULL_STR);
-
 /*
  * Generic get function to be used by callbacks. Must yield string.
  */
 css_error get_string (
 		void *node,
-		const char* (*js_fun)(const char*),
+		char* (*js_fun)(const char*),
 		lwc_string** ret
 		)
 {
 	lwc_string* n = (lwc_string*) node;
 	const char* node_string = lwc_string_data(n);
 
-	const char* js_results =
+	char* js_results =
 		(*js_fun)(node_string);
 
 	if (*js_results == '\0')
@@ -677,17 +659,17 @@ css_error match_bool (
 	lwc_string* n = (lwc_string*) node;
 	const char* node_string = lwc_string_data(n);
 
+	const char null_str[1] = "";
+
 	lwc_string* s = search_parameter;
 	const char* search_string = s == NULL
-		? lwc_string_data(NULL_STR)
-		: lwc_string_data(s);
+		? null_str : lwc_string_data(s);
 
 	lwc_string* m = match_parameter;
-	const char* match_string = m == NULL
-		? lwc_string_data(NULL_STR)
-		: lwc_string_data(m);
+	const char* match_str = m == NULL
+		? null_str : lwc_string_data(m);
 
-	*ret = (*js_fun)(node_string, search_string, match_string);
+	*ret = (*js_fun)(node_string, search_string, match_str);
 	return CSS_OK;
 }
 
@@ -697,17 +679,17 @@ css_error match_bool (
 css_error match_string (
 		void *node,
 		lwc_string* search_parameter,
-		const char* (*js_fun)(const char*, const char*),
-		lwc_string** ret
+		char* (*js_fun)(const char*, const char*),
+		void** ret
 		)
 {
 	lwc_string* n = node;
 	const char* node_string = lwc_string_data(n);
 	lwc_string* s = search_parameter;
-	const char* match_string = lwc_string_data(s);
+	const char* match_str = lwc_string_data(s);
 
-	const char* js_results =
-		(*js_fun)(node_string, match_string);
+	char* js_results =
+		(*js_fun)(node_string, match_str);
 
 	if (*js_results == '\0')
 	{
@@ -778,10 +760,10 @@ css_error node_classes(void *pw, void *node,
 	const char* node_string = lwc_string_data(n);
 
 	/* This js function returns a stringified array of class strings */
-	const char* js_results = (*js_node_classes)(node_string);
+	char* js_results = (*js_node_classes)(node_string);
 
 	/* Bail out */
-	if (*js_results == NULL)
+	if ((*js_results) == '\0')
 	{
 		*classes = NULL;
 		*n_classes = 0;
@@ -790,31 +772,31 @@ css_error node_classes(void *pw, void *node,
 	}
 
 	char* current_c = js_results;
-	uint32_t n = 1;
-	while(*current_c != NULL)
+	uint32_t num = 1;
+	while((*current_c) != '\0')
 	{
 		if (*(++current_c) == ',')
-			++n;
+			++num;
 	}
 
-	lwc_string** ptr_array = malloc(sizeof(lwc_string*) * n);
+	lwc_string** ptr_array = malloc(sizeof(lwc_string*) * num);
 
 	size_t current_class_s = strlen(js_results) + 1;
-	const char current_class[current_class_s];
+	char current_class[current_class_s];
 	int offset = 0;
 	int classes_processed = 0;
 	current_c = js_results;
-	while (*(current_c + offset) != NULL)
+	while (current_c[offset] != '\0')
 	{
-		switch (*(current_c + offset))
+		switch (current_c[offset])
 		{
-			case "\"":
-			case "[":
-				++current_c;
+			case '"':
+			case '[':
+				current_c++;
 				break;
 
-			case ",":
-			case "]":
+			case ',':
+			case ']':
 				current_c += ++offset;
 				current_class[offset] = '\0';
 				offset = 0;
@@ -823,19 +805,20 @@ css_error node_classes(void *pw, void *node,
 						current_class,
 						strlen(current_class),
 						&class_name);
-				ptr_array[classes_processed++ *
-					sizeof(lwc_string*)] =
+				ptr_array[classes_processed] =
 					lwc_string_ref(class_name);
+				classes_processed++;
 				break;
 
 			default:
-				current_class[offset] = *(current_c + offset++);
+				current_class[offset] = current_c[offset];
+				offset++;
 				break;
 		}
 	}
 
 	*classes = ptr_array;
-	*n_classes = n;
+	*n_classes = num;
 
 	free(js_results);
 	return CSS_OK;
@@ -890,7 +873,7 @@ css_error named_parent_node(void *pw, void *node,
 		const css_qname *qname, void **parent)
 {
 	UNUSED(pw);
-	return match_string(node, qname->name, js_named_parent_node, ancestor);
+	return match_string(node, qname->name, js_named_parent_node, parent);
 }
 
 /**
@@ -949,7 +932,7 @@ css_error named_generic_sibling_node(void *pw, void *node,
 css_error parent_node(void *pw, void *node, void **parent)
 {
 	UNUSED(pw);
-	return get_string(node, js_parent_node, parent);
+	return get_string(node, js_parent_node, (lwc_string**) parent);
 }
 
 /**
@@ -965,7 +948,7 @@ css_error parent_node(void *pw, void *node, void **parent)
 css_error sibling_node(void *pw, void *node, void **sibling)
 {
 	UNUSED(pw);
-	return get_string(node, js_sibling_node, sibling);
+	return get_string(node, js_sibling_node, (lwc_string**) sibling);
 }
 
 /**
@@ -1216,7 +1199,6 @@ css_error node_count_siblings(void *pw, void *n, bool same_name,
 		bool after, int32_t *count)
 {
 	UNUSED(pw);
-	lcw_string* node = n;
 	const char* node_string = lwc_string_data(n);
 
 	*count = (int32_t) (*js_node_count_siblings)(
@@ -1252,7 +1234,7 @@ css_error node_is_empty(void *pw, void *node, bool *match)
  *
  * \post \a match will contain true if the node matches and false otherwise.
  */
-css_error node_is_link(void *pw, void *n, bool *match)
+css_error node_is_link(void *pw, void *node, bool *match)
 {
 	UNUSED(pw);
 	return match_bool(node, NULL, NULL, js_node_is_link, match);
@@ -1412,6 +1394,7 @@ css_error node_presentational_hint(void *pw, void *node,
 		uint32_t *nhints, css_hint **hints)
 {
 	UNUSED(pw);
+	UNUSED(node);
 	/*
 	 * TODO: Maybe implement presentational hints,
 	 * when we find out what it means?
@@ -1468,10 +1451,7 @@ struct node_data {
 };
 typedef struct node_data node_data;
 
-node_data first_node;
-first_node.id = NULL;
-first_node.data = NULL;
-first_node.next = NULL;
+node_data first_node = { .id = NULL, .data = NULL, .next = NULL };
 
 node_data* get_last_node_data ()
 {
@@ -1492,7 +1472,7 @@ node_data* get_node_data_by_id (lwc_string* id)
 		current_node = current_node->next;
 
 		bool match;
-		lwc_string_isequal(*id, current_node->id, &bool);
+		lwc_string_isequal(id, current_node->id, &match);
 
 		if (match)
 			return current_node;
@@ -1522,7 +1502,7 @@ void update_node_data (lwc_string* id, void* new_data)
 		node->data = new_data;
 }
 
-
+/*
 css_error set_libcss_node_data(void *pw, void *node, void *libcss_node_data)
 {
 	UNUSED(pw);
@@ -1534,6 +1514,29 @@ css_error get_libcss_node_data(void *pw, void *node, void **libcss_node_data)
 {
 	UNUSED(pw);
 	node_data* nd = get_node_data_by_id((lwc_string*) node);
-	*libcss_node_data = *nd == NULL ? NULL : nd->data;
+	*libcss_node_data = nd == NULL ? NULL : nd->data;
 	return CSS_OK;
 }
+*/
+
+
+static css_error set_libcss_node_data(void *pw, void *n,
+		void *libcss_node_data)
+{
+	/* Since we're not storing it, ensure node data gets deleted */
+	css_libcss_node_data_handler(&selection_handler, CSS_NODE_DELETED,
+			pw, n, NULL, libcss_node_data);
+
+	return CSS_OK;
+}
+
+static css_error get_libcss_node_data(void *pw, void *n,
+		void **libcss_node_data)
+{
+	UNUSED(pw);
+	UNUSED(n);
+	*libcss_node_data = NULL;
+
+	return CSS_OK;
+}
+
