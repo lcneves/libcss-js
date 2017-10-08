@@ -385,7 +385,7 @@ css_js_error add_stylesheet (
 	code = css_stylesheet_append_data(
 			sheet,
 			(const uint8_t *) css_string,
-			sizeof css_string
+			strlen(css_string) + 1
 			);
 	if (code != CSS_OK && code != CSS_NEEDDATA)
 		return CSS_JS_APPEND_DATA;
@@ -452,7 +452,7 @@ css_js_error build_style(lwc_string* node,
 		code = css_stylesheet_append_data(
 				sheet,
 				(const uint8_t *) inline_style,
-				sizeof inline_style
+				strlen(inline_style) + 1
 				);
 		if (code != CSS_OK && code != CSS_NEEDDATA)
 			return CSS_JS_APPEND_DATA;

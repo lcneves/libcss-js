@@ -1,0 +1,27 @@
+{
+  "name": "libcss",
+  "version": "1.0.0",
+  "description": "CSS parser and selection library.",
+  "main": "index.js",
+  "directories": {
+    "example": "examples",
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lcneves/libcss-js.git"
+  },
+  "keywords": [
+    "CSS",
+    "libcss"
+  ],
+  "author": "Lucas Neves",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lcneves/libcss-js/issues"
+  },
+  "homepage": "https://github.com/lcneves/libcss-js#readme"
+}

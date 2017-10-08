@@ -93,7 +93,7 @@
  *   returns a boolean: true if node has no children or text; otherwise false.
  */
 
-var lh = require('./lib/libcss-js.js');
+var lh = require('./lib/libcss.js');
 
 var ch; //Client handler functions
 
