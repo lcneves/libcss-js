@@ -66,7 +66,7 @@ libcss.init(handlers);
 const css = '#div-0 { color: red; width: 70px; height: 50px; }';
 const cssBis = 'div { align-content: center; }';
 const cssTris = 'p { order: 1; }';
-const cssQuat = 'div { flex: 2 10px; }';
+const cssQuat = 'div { flex: 3 3; }';
 
 libcss.addSheet(css);
 libcss.addSheet(cssBis);

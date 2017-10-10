@@ -119,7 +119,7 @@ fs.readFile(
     if (err) throw err;
 
     var testDataArr = data.split('#reset').map((item) => item.trim());
-    var testNum = 0;
+    var testNum = 1;
 
     for (let testData of testDataArr) {
       if (!testData) continue;
@@ -173,10 +173,6 @@ fs.readFile(
       let results = libcss.getStyle(queryElement.id);
       let err = '';
 
-      console.info('Test ' + testNum + ':');
-      console.dir(root, { depth: null });
-      console.info('Query: ' + queryElement.id);
-
       for (let property in expectedResults) {
         if (expectedResults.hasOwnProperty(property)) {
           if (results[property] !== expectedResults[property]) {
@@ -187,10 +183,13 @@ fs.readFile(
         }
       }
       if (err) {
-        console.error('Test ' + ++testNum + ' failed!' + '\n' + err);
+        console.error('Test ' + testNum + ' FAIL!' + '\n' + err);
+        console.dir(root, { depth: null });
+        console.info('Query: ' + queryElement.id);
       } else {
-        console.info('Test ' + ++testNum + ' passed!');
+        console.info('Test ' + testNum + ' PASS!');
       }
+      testNum++;
       libcss.reset();
     }
   }

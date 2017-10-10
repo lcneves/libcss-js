@@ -365,7 +365,7 @@ css_js_error add_stylesheet (
 	params.charset = NULL;
 	params.url = url;
 	params.title = NULL;
-	params.allow_quirks = true;
+	params.allow_quirks = false;
 	params.inline_style = false;
 	params.resolve = resolve_url;
 	params.resolve_pw = NULL;
@@ -433,7 +433,7 @@ css_js_error build_style(lwc_string* node,
 		params.charset = NULL;
 		params.url = "";
 		params.title = NULL;
-		params.allow_quirks = true;
+		params.allow_quirks = false;
 		params.inline_style = true;
 		params.resolve = resolve_url;
 		params.resolve_pw = NULL;
