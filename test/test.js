@@ -46,7 +46,7 @@ var handlers = {
   getAncestors: function (identifier) {
     var element = getElementById(identifier);
     var ancestors = [];
-    while (element.parent) {
+    while (element.parent && element.parent.tagName !== 'root') {
       element = element.parent;
       ancestors.push({ tagName: element.tagName, identifier: element.id });
     }
