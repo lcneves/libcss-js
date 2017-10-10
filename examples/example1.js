@@ -86,3 +86,5 @@ console.log('justify-content: ' + computedStyle['justify-content']);
 libcss.addSheet(cssTris);
 var computedStyleP = libcss.getStyle('idone');
 console.log('order: ' + computedStyleP.order);
+
+console.dir(computedStyleP);
