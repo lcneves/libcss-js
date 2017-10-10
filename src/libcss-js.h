@@ -41,7 +41,7 @@ css_js_error reset_ctx();
  * 	level: a string that specifies the language level of the CSS code.
  * 		Accepted values are "1", "2", "2.1" and "3".
  * 	url: a string that specifies the base URL for the stylesheet.
- * 		If none, accepted values are NULL and "" (empty string).
+ * 		If none, should be "" (empty string).
  */
 css_js_error add_stylesheet (const char* css_string, const char* level,
 		const char* url);
