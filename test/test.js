@@ -12,7 +12,10 @@ const path = require('path');
 const fs = require('fs');
 const libcss = require('../index.js');
 
+const DEFAULT_FONT_SIZE = 12;
+
 var root = null;
+var count = 0;
 
 function getElementById (identifier, element) {
   element = element ? element : root;
@@ -21,7 +24,7 @@ function getElementById (identifier, element) {
     let match = getElementById(identifier, child);
     if (match) return child;
   }
-  throw new Error('Element ' + identifier + ' not found!');
+  return false;
 }
 
 var handlers = {
@@ -55,6 +58,9 @@ var handlers = {
   isEmpty: function (identifier) {
     var element = getElementById(identifier);
     return (typeof element.children[0] === undefined);
+  },
+  uaFontSize: function () {
+    return DEFAULT_FONT_SIZE * 10;
   }
 };
 
@@ -123,7 +129,6 @@ fs.readFile(
 
       let expectedResults = parseExpected(testParts[1]);
 
-      let count = 0;
       root = makeElement('root', null, count++);
       let currentElement = root;
       let currentDepth = 0;
@@ -166,18 +171,27 @@ fs.readFile(
       }
 
       let results = libcss.getStyle(queryElement.id);
+      let err = '';
+
+      console.info('Test ' + testNum + ':');
+      console.dir(root, { depth: null });
+      console.info('Query: ' + queryElement.id);
+
       for (let property in expectedResults) {
         if (expectedResults.hasOwnProperty(property)) {
           if (results[property] !== expectedResults[property]) {
-            let err =
+            err +=
               'Expected: ' + property + ': ' + expectedResults[property] + '\n'
-              + 'Verified: ' + property + ': ' + results[property];
-            console.error(err);
+              + 'Verified: ' + property + ': ' + results[property] + '\n';
           }
         }
       }
+      if (err) {
+        console.error('Test ' + ++testNum + ' failed!' + '\n' + err);
+      } else {
+        console.info('Test ' + ++testNum + ' passed!');
+      }
       libcss.reset();
-      console.log('Test ' + ++testNum + ' passed!');
     }
   }
 );
