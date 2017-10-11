@@ -65,7 +65,7 @@ libcss.init(handlers);
 
 const css = '#div-0 { color: red; width: 70px; height: 50px; }';
 const cssBis = 'div { align-content: center; }';
-const cssTris = 'p { order: 1; }';
+const cssTris = 'p { order: 1; display: block; }';
 const cssQuat = 'div { flex: 3 3; }';
 
 libcss.addSheet(css);
@@ -86,5 +86,6 @@ console.log('justify-content: ' + computedStyle['justify-content']);
 libcss.addSheet(cssTris);
 var computedStyleP = libcss.getStyle('idone');
 console.log('order: ' + computedStyleP.order);
+console.log('display: ' + computedStyleP.display);
 
 console.dir(computedStyleP);

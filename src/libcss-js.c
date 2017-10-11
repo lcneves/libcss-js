@@ -239,6 +239,7 @@ css_js_error set_handlers(uint64_t* arr, size_t len)
 }
 
 css_select_ctx* select_ctx = NULL;
+stylesheet_list* first_sheet = NULL;
 
 /**
  * Selection callback table for libcss
@@ -310,23 +311,49 @@ css_error resolve_url(
 	return CSS_OK;
 }
 
+css_js_error append_stylesheet_list (css_stylesheet* new_sheet)
+{
+	stylesheet_list* new_node = malloc(sizeof(stylesheet_list));
+	new_node->sheet = new_sheet;
+	new_node->next = NULL;
+
+	stylesheet_list* current = first_sheet;
+	while (current->next != NULL) {
+		current = current->next;
+	}
+	current->next = new_node;
+
+	return CSS_JS_OK;
+}
+
+css_js_error free_stylesheet_list (stylesheet_list* sheet)
+{
+	if (sheet == NULL)
+		return CSS_JS_OK;
+
+	css_error code;
+
+	if (sheet->next != NULL) {
+		free_stylesheet_list(sheet->next);
+	}
+	if (sheet->sheet != NULL) {
+		code = css_stylesheet_destroy(sheet->sheet);
+		if (code != CSS_OK)
+			return CSS_JS_DESTROY_SHEET;
+	}
+
+	free(sheet);
+	sheet = NULL;
+
+	return CSS_JS_OK;
+}
+
 css_js_error reset_ctx()
 {
 	css_error code;
+	css_js_error js_code;
 
 	if (select_ctx != NULL) {
-		/*
-		 * Still not sure if need to destroy sheets in ctx.
-		 * Anyway, need to include header for css_select_ctx for this
-		 * to work.
-		for (uint32_t i = 0; i < select_ctx->n_sheets; ++i) {
-			code = css_stylesheet_destroy(
-					select_ctx->sheets[i].sheet);
-			if (code != CSS_OK)
-				return CSS_JS_DESTROY_SHEET;
-		}
-		*/
-
 		code = css_select_ctx_destroy(select_ctx);
 		if (code != CSS_OK)
 			return CSS_JS_DESTROY_CTX;
@@ -335,6 +362,14 @@ css_js_error reset_ctx()
 	code = css_select_ctx_create(&select_ctx);
 	if (code != CSS_OK)
 		return CSS_JS_CREATE_CTX;
+
+	js_code = free_stylesheet_list(first_sheet);
+	if (js_code != CSS_JS_OK)
+		return js_code;
+
+	first_sheet = malloc(sizeof(stylesheet_list));
+	first_sheet->sheet = NULL;
+	first_sheet->next = NULL;
 
 	return CSS_JS_OK;
 }
@@ -346,6 +381,7 @@ css_js_error add_stylesheet (
 		)
 {
 	css_error code;
+	css_js_error js_code;
 
 	css_language_level css_level;
 	if (strcmp(level, "1") == 0)
@@ -393,6 +429,10 @@ css_js_error add_stylesheet (
 	code = css_stylesheet_data_done(sheet);
 	if (code != CSS_OK)
 		return CSS_JS_DATA_DONE;
+
+	js_code = append_stylesheet_list(sheet);
+	if (js_code != CSS_JS_OK)
+		return js_code;
 
 	if (select_ctx == NULL) {
 		css_js_error js_error = reset_ctx();
@@ -1440,20 +1480,9 @@ css_error ua_default_for_property(void *pw, uint32_t property, css_hint *hint)
 	return CSS_OK;
 }
 
-/*
- * Linked list of pointers to libcss_node_data.
- * The ID is the handler for the node.
- */
-struct node_data {
-	lwc_string* id;
-	void* data;
-	struct node_data* next;
-};
-typedef struct node_data node_data;
-
 node_data first_node = { .id = NULL, .data = NULL, .next = NULL };
 
-node_data* get_last_node_data ()
+node_data* get_last_node_data (void)
 {
 	node_data* current_node = &first_node;
 
@@ -1502,7 +1531,6 @@ void update_node_data (lwc_string* id, void* new_data)
 		node->data = new_data;
 }
 
-/*
 css_error set_libcss_node_data(void *pw, void *node, void *libcss_node_data)
 {
 	UNUSED(pw);
@@ -1517,13 +1545,11 @@ css_error get_libcss_node_data(void *pw, void *node, void **libcss_node_data)
 	*libcss_node_data = nd == NULL ? NULL : nd->data;
 	return CSS_OK;
 }
-*/
 
-
+/*
 static css_error set_libcss_node_data(void *pw, void *n,
 		void *libcss_node_data)
 {
-	/* Since we're not storing it, ensure node data gets deleted */
 	css_libcss_node_data_handler(&selection_handler, CSS_NODE_DELETED,
 			pw, n, NULL, libcss_node_data);
 
@@ -1540,3 +1566,4 @@ static css_error get_libcss_node_data(void *pw, void *n,
 	return CSS_OK;
 }
 
+*/

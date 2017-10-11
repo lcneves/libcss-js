@@ -30,6 +30,35 @@ typedef enum css_js_error {
 } css_js_error;
 
 /*
+ * Linked list of pointers to libcss_node_data.
+ * The ID is the handler for the node.
+ */
+struct node_data {
+	lwc_string* id;
+	void* data;
+	struct node_data* next;
+};
+typedef struct node_data node_data;
+
+node_data* get_last_node_data (void);
+node_data* get_node_data_by_id (lwc_string* id);
+void append_node_data (lwc_string* id, void* new_data);
+void update_node_data (lwc_string* id, void* new_data);
+
+/*
+ * Linked list of pointers to css_stylesheet.
+ * Its purpose is to track all stylesheets so they can be freed.
+ */
+struct stylesheet_list {
+	css_stylesheet* sheet;
+	struct stylesheet_list* next;
+};
+typedef struct stylesheet_list stylesheet_list;
+
+css_js_error append_stylesheet_list (css_stylesheet* new_sheet);
+css_js_error free_stylesheet_list (stylesheet_list* sheet);
+
+/*
  * Resets the selection context (i.e. removes all added CSS stylesheets).
  */
 css_js_error reset_ctx();
