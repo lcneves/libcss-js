@@ -16,15 +16,10 @@ const DEFAULT_FONT_SIZE = 12;
 
 var root = null;
 var count = 0;
+var elements = {};
 
-function getElementById (identifier, element) {
-  element = element ? element : root;
-  if (element.id === identifier) return element;
-  for (let child of element.children) {
-    let match = getElementById(identifier, child);
-    if (match) return child;
-  }
-  return false;
+function getElementById (identifier) {
+  return elements[identifier];
 }
 
 var handlers = {
@@ -39,7 +34,7 @@ var handlers = {
   getSiblings: function (identifier) {
     var element = getElementById(identifier);
     var siblings = [];
-    if (element.parent) {
+    if (element.parent && element.parent.tagName !== 'root') {
       for (let child of element.parent.children) {
         siblings.push({ tagName: child.tagName, identifier: child.id });
       }
@@ -57,7 +52,7 @@ var handlers = {
   },
   isEmpty: function (identifier) {
     var element = getElementById(identifier);
-    return (typeof element.children[0] === undefined);
+    return (element.children[0] === undefined);
   },
   uaFontSize: function () {
     return DEFAULT_FONT_SIZE * 10;
@@ -78,6 +73,7 @@ function makeElement (tagName, parentElement, num) {
     parentElement.children.push(element);
   }
 
+  elements[element.id] = element;
   return element;
 }
 
@@ -134,6 +130,8 @@ fs.readFile(
       let currentDepth = 0;
       let queryElement = null;
 
+      let parsedCSS = [];
+
       let lines = testParts[0].split('\n').map((item) => item.trim());
       for (let line of lines) {
         if (!line || line.indexOf('#') === 0) continue;
@@ -166,6 +164,7 @@ fs.readFile(
           }
         }
         else {
+          parsedCSS.push(line);
           libcss.addSheet(line);
         }
       }
@@ -186,10 +185,12 @@ fs.readFile(
         console.error('Test ' + testNum + ' FAIL!' + '\n' + err);
         console.dir(root, { depth: null });
         console.info('Query: ' + queryElement.id);
+        console.dir(parsedCSS);
       } else {
         console.info('Test ' + testNum + ' PASS!');
       }
       testNum++;
+      elements = {};
       libcss.reset();
     }
   }

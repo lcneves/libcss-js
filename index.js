@@ -127,6 +127,7 @@ function getSelfIndex(identifier, siblings) {
   for (let i = 0; i < siblings.length; i++) {
     if (siblings[i].identifier === identifier) {
       selfIndex = i;
+      break;
     }
   }
   if (selfIndex === -1) {
@@ -236,7 +237,8 @@ var exportFunctions = [
     var results = '';
     var siblings = ch.getSiblings(nodeId);
     for (let sibling of siblings) {
-      if (sibling.identifier !== nodeId && sibling.tagName === siblingName) {
+      if (sibling.identifier === nodeId) break;
+      if (sibling.tagName === siblingName) {
         results = sibling.identifier;
         break;
       }
@@ -265,27 +267,30 @@ var exportFunctions = [
   function js_node_has_name(node, search, empty_match) {
     var nodeId = lh.Module.Pointer_stringify(node);
     var query = lh.Module.Pointer_stringify(search).toLowerCase();
+    if (query === '*') return true;
     var results = ch.getTagName(nodeId).toLowerCase();
     return query === results;
   },
   function js_node_has_class(node, search, empty_match) {
+    // Classes are case-sensitive
     var nodeId = lh.Module.Pointer_stringify(node);
-    var query = lh.Module.Pointer_stringify(search).toLowerCase();
+    var query = lh.Module.Pointer_stringify(search);
     var classes = getClasses(nodeId);
     for (let className of classes) {
-      if (className.toLowerCase() === query) {
+      if (className === query) {
         return true;
       }
     }
     return false;
   },
   function js_node_has_id(node, search, empty_match) {
+    // IDs are case-sensitive
     var nodeId = lh.Module.Pointer_stringify(node);
-    var query = lh.Module.Pointer_stringify(search).toLowerCase();
+    var query = lh.Module.Pointer_stringify(search);
     var attributes = ch.getAttributes(nodeId);
     for (let attribute of attributes) {
       if (attribute.attribute.toLowerCase() === 'id' &&
-        attribute.value.toLowerCase() === query) {
+        attribute.value === query) {
         return true;
       }
     }
@@ -385,11 +390,11 @@ var exportFunctions = [
   function js_node_is_root(node, empty_search, empty_match) {
     var nodeId = lh.Module.Pointer_stringify(node);
     var ancestors = ch.getAncestors(nodeId);
-    return ancestors[0] === undefined;
+    return (ancestors[0] === undefined);
   },
   function js_node_count_siblings(node, same_name, after) {
     var nodeId = lh.Module.Pointer_stringify(node);
-    var siblings = getSiblings(nodeId);
+    var siblings = ch.getSiblings(nodeId);
     var selfIndex = getSelfIndex(nodeId, siblings);
     if (same_name) {
       var count = 0;

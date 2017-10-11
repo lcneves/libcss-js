@@ -670,9 +670,12 @@ css_error get_string (
 	char* js_results =
 		(*js_fun)(node_string);
 
+        printf("get_string got: %s\n", js_results);
+
 	if (*js_results == '\0')
 	{
 		*ret = NULL;
+          printf("Null string\n");
 	}
 	else
 	{
@@ -710,6 +713,8 @@ css_error match_bool (
 		? null_str : lwc_string_data(m);
 
 	*ret = (*js_fun)(node_string, search_string, match_str);
+
+        printf("match_bool got: %s\n", *ret ? "true" : "false");
 	return CSS_OK;
 }
 
@@ -731,8 +736,11 @@ css_error match_string (
 	char* js_results =
 		(*js_fun)(node_string, match_str);
 
+        printf("match_string got: %s\n", js_results);
+
 	if (*js_results == '\0')
 	{
+          printf("Null string\n");
 		*ret = NULL;
 	}
 	else
@@ -803,7 +811,7 @@ css_error node_classes(void *pw, void *node,
 	char* js_results = (*js_node_classes)(node_string);
 
 	/* Bail out */
-	if ((*js_results) == '\0')
+	if ((*js_results) == '\0' || strcmp(js_results, "[]") == 0)
 	{
 		*classes = NULL;
 		*n_classes = 0;
@@ -825,6 +833,8 @@ css_error node_classes(void *pw, void *node,
 	char current_class[current_class_s];
 	int offset = 0;
 	int classes_processed = 0;
+        size_t cur_len;
+        lwc_string* class_name = NULL;
 	current_c = js_results;
 	while (current_c[offset] != '\0')
 	{
@@ -832,26 +842,27 @@ css_error node_classes(void *pw, void *node,
 		{
 			case '"':
 			case '[':
-				current_c++;
+			case ' ':
+				offset++;
 				break;
 
 			case ',':
 			case ']':
-				current_c += ++offset;
-				current_class[offset] = '\0';
-				offset = 0;
-				lwc_string* class_name;
 				lwc_intern_string(
 						current_class,
 						strlen(current_class),
 						&class_name);
 				ptr_array[classes_processed] =
 					lwc_string_ref(class_name);
+                                current_class[0] = '\0';
 				classes_processed++;
+				offset++;
 				break;
 
 			default:
-				current_class[offset] = current_c[offset];
+                                cur_len = strlen(current_class);
+				current_class[cur_len] = current_c[offset];
+				current_class[cur_len + 1] = '\0';
 				offset++;
 				break;
 		}
@@ -859,6 +870,11 @@ css_error node_classes(void *pw, void *node,
 
 	*classes = ptr_array;
 	*n_classes = num;
+
+        printf("Number of classes: %d\n", *n_classes);
+        for (int i = 0; i < *n_classes; i++) {
+          printf("Class %d: %s\n", i, lwc_string_data(*classes[i]));
+        }
 
 	free(js_results);
 	return CSS_OK;
@@ -1239,7 +1255,8 @@ css_error node_count_siblings(void *pw, void *n, bool same_name,
 		bool after, int32_t *count)
 {
 	UNUSED(pw);
-	const char* node_string = lwc_string_data(n);
+        lwc_string* node = n;
+	const char* node_string = lwc_string_data(node);
 
 	*count = (int32_t) (*js_node_count_siblings)(
 			node_string, same_name, after);
@@ -1480,11 +1497,13 @@ css_error ua_default_for_property(void *pw, uint32_t property, css_hint *hint)
 	return CSS_OK;
 }
 
-node_data first_node = { .id = NULL, .data = NULL, .next = NULL };
+node_data* first_node = NULL;
 
 node_data* get_last_node_data (void)
 {
-	node_data* current_node = &first_node;
+	if (first_node == NULL) return NULL;
+
+	node_data* current_node = first_node;
 
 	while (current_node->next != NULL)
 		current_node = current_node->next;
@@ -1494,7 +1513,9 @@ node_data* get_last_node_data (void)
 
 node_data* get_node_data_by_id (lwc_string* id)
 {
-	node_data* current_node = &first_node;
+	if (first_node == NULL) return NULL;
+
+	node_data* current_node = first_node;
 
 	while (current_node->next != NULL)
 	{
@@ -1518,31 +1539,40 @@ void append_node_data (lwc_string* id, void* new_data)
 	new_node-> next = NULL;
 
 	node_data* last_node = get_last_node_data();
-	last_node->next = new_node;
+	if (last_node == NULL)
+		first_node = new_node;
+	else
+		last_node->next = new_node;
 }
 
 void update_node_data (lwc_string* id, void* new_data)
 {
 	node_data* node = get_node_data_by_id(id);
 
-	if (node == NULL)
+	if (node == NULL) {
+          printf("Appending data for node %s\n", lwc_string_data(id));
 		append_node_data(id, new_data);
-	else
+        } else {
 		node->data = new_data;
+          printf("Updating data for node %s\n", lwc_string_data(id));
+        }
 }
 
 css_error set_libcss_node_data(void *pw, void *node, void *libcss_node_data)
 {
 	UNUSED(pw);
-	update_node_data((lwc_string*) node, libcss_node_data);
+        lwc_string* node_str = node;
+	update_node_data(node_str, libcss_node_data);
 	return CSS_OK;
 }
 
 css_error get_libcss_node_data(void *pw, void *node, void **libcss_node_data)
 {
 	UNUSED(pw);
-	node_data* nd = get_node_data_by_id((lwc_string*) node);
+        lwc_string* node_str = node;
+	node_data* nd = get_node_data_by_id(node_str);
 	*libcss_node_data = nd == NULL ? NULL : nd->data;
+          printf("%s %s %s\n", "Node data for", lwc_string_data(node_str), nd == NULL ? "not found!" : "found!");
 	return CSS_OK;
 }
 
