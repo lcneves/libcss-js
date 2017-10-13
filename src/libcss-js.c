@@ -1550,11 +1550,9 @@ void update_node_data (lwc_string* id, void* new_data)
 	node_data* node = get_node_data_by_id(id);
 
 	if (node == NULL) {
-          printf("Appending data for node %s\n", lwc_string_data(id));
 		append_node_data(id, new_data);
         } else {
 		node->data = new_data;
-          printf("Updating data for node %s\n", lwc_string_data(id));
         }
 }
 
@@ -1572,7 +1570,6 @@ css_error get_libcss_node_data(void *pw, void *node, void **libcss_node_data)
         lwc_string* node_str = node;
 	node_data* nd = get_node_data_by_id(node_str);
 	*libcss_node_data = nd == NULL ? NULL : nd->data;
-          printf("%s %s %s\n", "Node data for", lwc_string_data(node_str), nd == NULL ? "not found!" : "found!");
 	return CSS_OK;
 }
 
