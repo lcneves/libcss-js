@@ -19,6 +19,10 @@ var count = 0;
 var elements = {};
 
 function getElementById (identifier) {
+  if (typeof elements[identifier] === 'undefined')
+    throw new Error('Unable to find element with identifier "' + identifier
+      + '"!');
+
   return elements[identifier];
 }
 

@@ -12,38 +12,52 @@
 #ifndef _LIBCSS_JS_H_
 #define _LIBCSS_JS_H_
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <libcss/libcss.h>
+#include "libcss/test/dump_computed.h"
+
+#define UNUSED(x) ((x) = (x))
+
 typedef enum css_js_error {
-	CSS_JS_OK             =  0,
-	CSS_JS_ELEMENT        =  1,
-	CSS_JS_PSEUDO         =  2,
-	CSS_JS_CREATE_CTX     =  3,
-	CSS_JS_CREATE_SHEET   =  4,
-	CSS_JS_CREATE_STYLE   =  5,
-	CSS_JS_DESTROY_CTX    =  6,
-	CSS_JS_DESTROY_SHEET  =  7,
-	CSS_JS_DESTROY_STYLE  =  8,
-	CSS_JS_LEVEL          =  9,
-	CSS_JS_APPEND_DATA    = 10,
-	CSS_JS_DATA_DONE      = 11,
-	CSS_JS_APPEND_SHEET   = 12,
-	CSS_JS_HANDLER_LENGTH = 13
+	CSS_JS_OK                =  0,
+	CSS_JS_ELEMENT           =  1,
+	CSS_JS_PSEUDO            =  2,
+	CSS_JS_CREATE_CTX        =  3,
+	CSS_JS_CREATE_SHEET      =  4,
+	CSS_JS_CREATE_STYLE      =  5,
+	CSS_JS_COMPOSE_STYLE     =  6,
+	CSS_JS_DESTROY_CTX       =  7,
+	CSS_JS_DESTROY_SHEET     =  8,
+	CSS_JS_DESTROY_STYLE     =  9,
+	CSS_JS_DESTROY_NODE_DATA = 10,
+	CSS_JS_LEVEL             = 11,
+	CSS_JS_APPEND_DATA       = 12,
+	CSS_JS_DATA_DONE         = 13,
+	CSS_JS_APPEND_SHEET      = 14,
+	CSS_JS_HANDLER_LENGTH    = 15
 } css_js_error;
 
 /*
  * Linked list of pointers to libcss_node_data.
  * The ID is the handler for the node.
  */
-struct node_data {
+struct css_js_node {
 	lwc_string* id;
 	void* data;
-	struct node_data* next;
+	css_select_results* sr;
+	struct css_js_node* next;
 };
-typedef struct node_data node_data;
+typedef struct css_js_node css_js_node;
 
-node_data* get_last_node_data (void);
-node_data* get_node_data_by_id (lwc_string* id);
-void append_node_data (lwc_string* id, void* new_data);
-void update_node_data (lwc_string* id, void* new_data);
+css_js_node* get_last_node (void);
+css_js_node* get_node_by_id (lwc_string* id);
+css_js_node* append_node (
+		lwc_string* id, css_select_results* new_sr, void* new_data);
+css_js_node* update_node (
+		lwc_string* id, css_select_results* new_sr, void* new_data);
 
 /*
  * Linked list of pointers to css_stylesheet.
@@ -61,7 +75,7 @@ css_js_error free_stylesheet_list (stylesheet_list* sheet);
 /*
  * Resets the selection context (i.e. removes all added CSS stylesheets).
  */
-css_js_error reset_ctx();
+css_js_error reset_ctx (void);
 
 /*
  * Adds a CSS stylesheet to the selection context.
