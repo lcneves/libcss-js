@@ -14,18 +14,19 @@
 css_js_error set_handlers(uint64_t* arr, size_t len);
 css_js_error create_ctx (void);
 css_js_error append_stylesheet_list (css_stylesheet* new_sheet);
-css_js_error free_stylesheet_list (stylesheet_list* sheet);
-css_js_error build_style(lwc_string* node, const char* inline_style,
-		css_select_results** results);
+css_js_error free_stylesheet_list (stylesheet_list** sheet_ptr);
+css_js_error build_style(lwc_string* node, uint64_t media,
+		const char* inline_style, css_select_results** results);
 css_js_error build_node_sr (lwc_string* node_str, css_pseudo_element pseudo,
-		const char* inline_style, css_js_node** ret_node);
+		uint64_t media, const char* inline_style,
+		css_js_node** ret_node);
 css_js_node* get_last_node (void);
 css_js_node* get_node_by_id (lwc_string* id);
 css_js_node* append_node (
 		lwc_string* id, css_select_results* new_sr, void* new_data);
 css_js_node* update_node (
 		lwc_string* id, css_select_results* new_sr, void* new_data);
-css_js_error free_node (css_js_node* node);
+css_js_error free_node (css_js_node** node_ptr);
 
 css_error resolve_url(void *pw, const char *base,
 		lwc_string *rel, lwc_string **abs);
@@ -307,7 +308,7 @@ css_js_node* first_node = NULL;
 
 css_js_node* get_last_node (void)
 {
-	printf("Getting last node!\n");
+	// printf("Getting last node!\n");
 	if (first_node == NULL) return NULL;
 
 	css_js_node* current_node = first_node;
@@ -320,16 +321,20 @@ css_js_node* get_last_node (void)
 
 css_js_node* get_node_by_id (lwc_string* id)
 {
-	printf("Getting node by id %s!\n", lwc_string_data(id));
-        for (css_js_node* current_node = first_node;
-            current_node != NULL;
-            current_node = current_node->next) {
+	// printf("Getting node by id %s!\n", lwc_string_data(id));
+	for (css_js_node* current_node = first_node;
+	    current_node != NULL;
+	    current_node = current_node->next) {
+		// printf("Current node id: %s\n", lwc_string_data(current_node->id));
 		bool match;
 		lwc_string_isequal(id, current_node->id, &match);
 
-		if (match)
+		if (match) {
+			// printf("Found!\n");
 			return current_node;
+		}
 	}
+	// printf("Not found!\n");
 
 	return NULL;
 }
@@ -337,7 +342,7 @@ css_js_node* get_node_by_id (lwc_string* id)
 css_js_node* append_node (
 		lwc_string* id, css_select_results* new_sr, void* new_data)
 {
-	printf("Appending node for id %s!\n", lwc_string_data(id));
+	// printf("Appending node for id %s!\n", lwc_string_data(id));
 	css_js_node* new_node = malloc(sizeof(css_js_node));
 	new_node->id = lwc_string_ref(id);
 	new_node->sr = new_sr;
@@ -347,10 +352,10 @@ css_js_node* append_node (
 	css_js_node* last_node = get_last_node();
 	if (last_node == NULL) {
 		first_node = new_node;
-        }
+	}
 	else {
 		last_node->next = new_node;
-        }
+	}
 
 	return new_node;
 }
@@ -358,24 +363,26 @@ css_js_node* append_node (
 css_js_node* update_node (
 		lwc_string* id, css_select_results* new_sr, void* new_data)
 {
-	printf("Updating node for id %s!\n", lwc_string_data(id));
 	css_js_node* node = get_node_by_id(id);
 
 	if (node == NULL) {
 		node = append_node(id, NULL, new_data);
-        } else {
+	} else {
+		// printf("Updating node for id %s!\n", lwc_string_data(id));
 		if (new_sr != NULL)
 			node->sr = new_sr;
 		if (new_data != NULL)
 			node->data = new_data;
-        }
+	}
 
 	return node;
 }
 
-css_js_error free_node (css_js_node* node)
+css_js_error free_node (css_js_node** node_ptr)
 {
-	printf("Freeing node for id %s!\n", node == NULL ? "Node null" : lwc_string_data(node->id));
+	css_js_node* node = *node_ptr;
+
+	// printf("Freeing node for id %s!\n", node == NULL ? "Node null" : lwc_string_data(node->id));
 	css_error code;
 	css_js_error js_code;
 
@@ -383,7 +390,7 @@ css_js_error free_node (css_js_node* node)
 		return CSS_JS_OK;
 
 	if (node->next != NULL) {
-		js_code = free_node(node->next);
+		js_code = free_node(&(node->next));
 		if (js_code != CSS_JS_OK)
 			return js_code;
 	}
@@ -405,7 +412,7 @@ css_js_error free_node (css_js_node* node)
 	lwc_string_unref(node->id);
 
 	free(node);
-	node = NULL;
+	*node_ptr = NULL;
 
 	return CSS_JS_OK;
 }
@@ -416,7 +423,7 @@ css_error resolve_url(
 {
 	UNUSED(pw);
 	size_t base_s = strlen(base);
-        bool has_base = (base_s > 0);
+	bool has_base = (base_s > 0);
 	char base_str[base_s];
 	strcpy(base_str, base);
 	if (base_str[base_s] == '/')
@@ -428,11 +435,11 @@ css_error resolve_url(
 	const size_t rel_s = strlen(rel_str);
 
 	char abs_str[base_s + rel_s + 1];
-        strcpy(abs_str, "");
-        if (has_base) {
-                strcat(abs_str, base_str);
-                strcat(abs_str, "/");
-        }
+	strcpy(abs_str, "");
+	if (has_base) {
+		strcat(abs_str, base_str);
+		strcat(abs_str, "/");
+	}
 	strcat(abs_str, rel_str);
 
 	lwc_intern_string(abs_str, strlen(abs_str), abs);
@@ -454,15 +461,17 @@ css_js_error append_stylesheet_list (css_stylesheet* new_sheet)
 	return CSS_JS_OK;
 }
 
-css_js_error free_stylesheet_list (stylesheet_list* sheet)
+css_js_error free_stylesheet_list (stylesheet_list** sheet_ptr)
 {
+	stylesheet_list* sheet = *sheet_ptr;
+
 	if (sheet == NULL)
 		return CSS_JS_OK;
 
 	css_error code;
 
 	if (sheet->next != NULL) {
-		free_stylesheet_list(sheet->next);
+		free_stylesheet_list(&(sheet->next));
 	}
 	if (sheet->sheet != NULL) {
 		code = css_stylesheet_destroy(sheet->sheet);
@@ -471,7 +480,7 @@ css_js_error free_stylesheet_list (stylesheet_list* sheet)
 	}
 
 	free(sheet);
-	sheet = NULL;
+	*sheet_ptr = NULL;
 
 	return CSS_JS_OK;
 }
@@ -481,10 +490,6 @@ css_js_error reset_ctx (void)
 	css_error code;
 	css_js_error js_code;
 
-	js_code = free_node(first_node);
-	if (js_code != CSS_JS_OK)
-		return js_code;
-
 	if (select_ctx != NULL) {
 		code = css_select_ctx_destroy(select_ctx);
 		if (code != CSS_OK)
@@ -493,7 +498,7 @@ css_js_error reset_ctx (void)
 		select_ctx = NULL;
 	}
 
-	js_code = free_stylesheet_list(first_sheet);
+	js_code = free_stylesheet_list(&first_sheet);
 	if (js_code != CSS_JS_OK)
 		return js_code;
 
@@ -511,6 +516,8 @@ css_js_error create_ctx (void) {
 css_js_error add_stylesheet (
 		const char* css_string,
 		const char* level,
+		const char* origin,
+		const char* media,
 		const char* url
 		)
 {
@@ -528,6 +535,76 @@ css_js_error add_stylesheet (
 		css_level = CSS_LEVEL_3;
 	else
 		return CSS_JS_LEVEL;
+
+	css_origin orig;
+	if (strcmp(origin, "author") == 0)
+		orig = CSS_ORIGIN_AUTHOR;
+	else if (strcmp(origin, "user") == 0)
+		orig = CSS_ORIGIN_USER;
+	else if (strcmp(origin, "ua") == 0 ||
+			strcmp(origin, "UA") == 0 ||
+			strcmp(origin, "user agent") == 0 ||
+			strcmp(origin, "user-agent") == 0)
+		orig = CSS_ORIGIN_UA;
+	else
+		return CSS_JS_ORIGIN;
+
+	const char *p = media;
+	const char *end = p + strlen(media);
+	uint64_t media_result = 0;
+
+	/* <medium> [ ',' <medium> ]* */
+
+	while (p < end) {
+		const char *start = p;
+
+		/* consume a medium */
+		while (*p != ',' && p < end)
+			p++;
+
+		if (p - start == 10 &&
+				strncasecmp(start, "projection", 10) == 0)
+			media_result |= CSS_MEDIA_PROJECTION;
+		else if (p - start == 8 &&
+				strncasecmp(start, "handheld", 8) == 0)
+			media_result |= CSS_MEDIA_HANDHELD;
+		else if (p - start == 8 &&
+				strncasecmp(start, "embossed", 8) == 0)
+			media_result |= CSS_MEDIA_EMBOSSED;
+		else if (p - start == 7 &&
+				strncasecmp(start, "braille", 7) == 0)
+			media_result |= CSS_MEDIA_BRAILLE;
+		else if (p - start == 6 &&
+				strncasecmp(start, "speech", 6) == 0)
+			media_result |= CSS_MEDIA_SPEECH;
+		else if (p - start == 6 &&
+				strncasecmp(start, "screen", 6) == 0)
+			media_result |= CSS_MEDIA_SCREEN;
+		else if (p - start == 5 &&
+				strncasecmp(start, "print", 5) == 0)
+			media_result |= CSS_MEDIA_PRINT;
+		else if (p - start == 5 &&
+				strncasecmp(start, "aural", 5) == 0)
+			media_result |= CSS_MEDIA_AURAL;
+		else if (p - start == 3 &&
+				strncasecmp(start, "tty", 3) == 0)
+			media_result |= CSS_MEDIA_TTY;
+		else if (p - start == 3 &&
+				strncasecmp(start, "all", 3) == 0)
+			media_result |= CSS_MEDIA_ALL;
+		else if (p - start == 2 &&
+				strncasecmp(start, "tv", 2) == 0)
+			media_result |= CSS_MEDIA_TV;
+		else
+			return CSS_JS_MEDIA;
+
+		/* Stop if we've reached the end */
+		if (p == end || *p != ',')
+			break;
+
+		/* Consume comma */
+		p++;
+	}
 
 	css_stylesheet_params params;
 	params.params_version = CSS_STYLESHEET_PARAMS_VERSION_1;
@@ -577,8 +654,8 @@ css_js_error add_stylesheet (
 	code = css_select_ctx_append_sheet(
 			select_ctx,
 			sheet,
-			CSS_ORIGIN_AUTHOR,
-			CSS_MEDIA_ALL
+			orig,
+			media_result
 	);
 	if (code != CSS_OK)
 		return CSS_JS_APPEND_SHEET;
@@ -590,7 +667,7 @@ css_js_error add_stylesheet (
  * Warning: if inline_style is set, the resulting stylesheet will not
  * be destroyed! This implementation leaks memory.
  */
-css_js_error build_style(lwc_string* node,
+css_js_error build_style(lwc_string* node, uint64_t media,
 		      const char* inline_style,
 		      css_select_results** results)
 {
@@ -647,7 +724,7 @@ css_js_error build_style(lwc_string* node,
 	code = css_select_style(
 			select_ctx,
 			node,
-			CSS_MEDIA_SCREEN,
+			media,
 			in_style,
 			&selection_handler,
 			NULL,
@@ -660,7 +737,8 @@ css_js_error build_style(lwc_string* node,
 }
 
 css_js_error build_node_sr (lwc_string* node_id, css_pseudo_element pseudo,
-		const char* inline_style, css_js_node** ret_node)
+		uint64_t media, const char* inline_style,
+		css_js_node** ret_node)
 {
 	css_error code;
 	css_js_error js_code;
@@ -675,7 +753,7 @@ css_js_error build_node_sr (lwc_string* node_id, css_pseudo_element pseudo,
 		node = append_node(node_id, NULL, NULL);
 	}
 	css_select_results* sr;
-	js_code = build_style(node_id, inline_style, &sr);
+	js_code = build_style(node_id, media, inline_style, &sr);
 	if (js_code != CSS_JS_OK)
 		return js_code;
 
@@ -685,7 +763,8 @@ css_js_error build_node_sr (lwc_string* node_id, css_pseudo_element pseudo,
 	get_string(node_id, js_parent_node, &parent_id);
 	if (parent_id != NULL) {
 		css_js_node* parent;
-		js_code = build_node_sr(parent_id, pseudo, NULL, &parent);
+		js_code = build_node_sr(parent_id, pseudo, media, NULL,
+				&parent);
 		if (js_code != CSS_JS_OK)
 			return js_code;
 
@@ -708,11 +787,9 @@ css_js_error build_node_sr (lwc_string* node_id, css_pseudo_element pseudo,
 	return CSS_JS_OK;
 }
 
-css_js_error get_style (const char* element,
-			const char* pseudo,
-			const char* inline_style,
-			char* results,
-			size_t len)
+css_js_error get_style (const char* element, const char* pseudo,
+			const char* media, const char* inline_style,
+			char* results, size_t len)
 {
 	css_error code;
 	css_js_error js_code;
@@ -731,17 +808,48 @@ css_js_error get_style (const char* element,
 	else
 		return CSS_JS_PSEUDO;
 
+	uint64_t media_code;
+	if (strcmp(media, "all") == 0)
+		media_code = CSS_MEDIA_ALL;
+	else if (strcmp(media, "tv") == 0)
+		media_code = CSS_MEDIA_TV;
+	else if (strcmp(media, "tty") == 0)
+		media_code = CSS_MEDIA_TTY;
+	else if (strcmp(media, "aural") == 0)
+		media_code = CSS_MEDIA_AURAL;
+	else if (strcmp(media, "print") == 0)
+		media_code = CSS_MEDIA_PRINT;
+	else if (strcmp(media, "screen") == 0)
+		media_code = CSS_MEDIA_SCREEN;
+	else if (strcmp(media, "speech") == 0)
+		media_code = CSS_MEDIA_SPEECH;
+	else if (strcmp(media, "braille") == 0)
+		media_code = CSS_MEDIA_BRAILLE;
+	else if (strcmp(media, "embossed") == 0)
+		media_code = CSS_MEDIA_EMBOSSED;
+	else if (strcmp(media, "handheld") == 0)
+		media_code = CSS_MEDIA_HANDHELD;
+	else if (strcmp(media, "projection") == 0)
+		media_code = CSS_MEDIA_PROJECTION;
+	else
+		return CSS_JS_MEDIA;
+
 	lwc_string* node_id;
 	lwc_intern_string(element, strlen(element), &node_id);
 	css_js_node* node;
 
-	js_code = build_node_sr(node_id, pseudo_code, inline_style, &node);
+	js_code = build_node_sr(node_id, pseudo_code, media_code,
+		inline_style, &node);
 	if (js_code != CSS_JS_OK)
 		return js_code;
 
 	lwc_string_unref(node_id);
 
 	dump_computed_style(node->sr->styles[pseudo_code], results, &len);
+
+	js_code = free_node(&first_node); // Cleans data for next selection
+	if (js_code != CSS_JS_OK)
+		return js_code;
 
 	return CSS_JS_OK;
 }
@@ -846,17 +954,17 @@ css_error get_string (
 	lwc_string* n = (lwc_string*) node;
 	const char* node_string = lwc_string_data(n);
 
-	printf("get_string querying node: %s\n", node_string);
+	// printf("get_string querying node: %s\n", node_string);
 
 	char* js_results =
 		(*js_fun)(node_string);
 
-        printf("get_string got: %s\n", js_results);
+	// printf("get_string got: %s\n", js_results);
 
 	if (*js_results == '\0')
 	{
 		*ret = NULL;
-          printf("Null string\n");
+	  // printf("Null string\n");
 	}
 	else
 	{
@@ -895,7 +1003,7 @@ css_error match_bool (
 
 	*ret = (*js_fun)(node_string, search_string, match_str);
 
-        printf("match_bool got: %s\n", *ret ? "true" : "false");
+	// printf("match_bool got: %s\n", *ret ? "true" : "false");
 	return CSS_OK;
 }
 
@@ -917,11 +1025,11 @@ css_error match_string (
 	char* js_results =
 		(*js_fun)(node_string, match_str);
 
-        printf("match_string got: %s\n", js_results);
+	// printf("match_string got: %s\n", js_results);
 
 	if (*js_results == '\0')
 	{
-          printf("Null string\n");
+	  // printf("Null string\n");
 		*ret = NULL;
 	}
 	else
@@ -947,7 +1055,7 @@ css_error match_string (
 
 
 /******************************************************************************
- * Style selection callbacks                                                  *
+ * Style selection callbacks						  *
  ******************************************************************************/
 
 /**
@@ -957,7 +1065,7 @@ css_error match_string (
  * \param node   DOM node
  * \param qname  Pointer to location to receive node name
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  */
 css_error node_name(void *pw, void *node, css_qname *qname)
 {
@@ -970,12 +1078,12 @@ css_error node_name(void *pw, void *node, css_qname *qname)
 /**
  * Callback to retrieve a node's classes.
  *
- * \param pw         HTML document
+ * \param pw	 HTML document
  * \param node       DOM node
  * \param classes    Pointer to location to receive class name array
  * \param n_classes  Pointer to location to receive length of class name array
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  *
  * \note The returned array will be destroyed by libcss. Therefore, it must
  *       be allocated using the same allocator as used by libcss during style
@@ -1014,8 +1122,8 @@ css_error node_classes(void *pw, void *node,
 	char current_class[current_class_s];
 	int offset = 0;
 	int classes_processed = 0;
-        size_t cur_len;
-        lwc_string* class_name = NULL;
+	size_t cur_len;
+	lwc_string* class_name = NULL;
 	current_c = js_results;
 	while (current_c[offset] != '\0')
 	{
@@ -1035,13 +1143,13 @@ css_error node_classes(void *pw, void *node,
 						&class_name);
 				ptr_array[classes_processed] =
 					lwc_string_ref(class_name);
-                                current_class[0] = '\0';
+				current_class[0] = '\0';
 				classes_processed++;
 				offset++;
 				break;
 
 			default:
-                                cur_len = strlen(current_class);
+				cur_len = strlen(current_class);
 				current_class[cur_len] = current_c[offset];
 				current_class[cur_len + 1] = '\0';
 				offset++;
@@ -1052,10 +1160,10 @@ css_error node_classes(void *pw, void *node,
 	*classes = ptr_array;
 	*n_classes = num;
 
-        printf("Number of classes: %d\n", *n_classes);
-        for (int i = 0; i < *n_classes; i++) {
-          printf("Class %d: %s\n", i, lwc_string_data(*classes[i]));
-        }
+	// printf("Number of classes: %d\n", *n_classes);
+	for (int i = 0; i < *n_classes; i++) {
+	  // printf("Class %d: %s\n", i, lwc_string_data(*classes[i]));
+	}
 
 	free(js_results);
 	return CSS_OK;
@@ -1068,7 +1176,7 @@ css_error node_classes(void *pw, void *node,
  * \param node  DOM node
  * \param id    Pointer to location to receive id value
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  */
 css_error node_id(void *pw, void *node, lwc_string **id)
 {
@@ -1079,7 +1187,7 @@ css_error node_id(void *pw, void *node, lwc_string **id)
 /**
  * Callback to find a named ancestor node.
  *
- * \param pw        HTML document
+ * \param pw	HTML document
  * \param node      DOM node
  * \param qname     Node name to search for
  * \param ancestor  Pointer to location to receive ancestor
@@ -1252,7 +1360,7 @@ css_error node_has_id(void *pw, void *node,
  * \param qname  Name to match
  * \param match  Pointer to location to receive result
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  *
  * \post \a match will contain true if the node matches and false otherwise.
  */
@@ -1273,7 +1381,7 @@ css_error node_has_attribute(void *pw, void *node,
  * \param value  Value to match
  * \param match  Pointer to location to receive result
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  *
  * \post \a match will contain true if the node matches and false otherwise.
  */
@@ -1299,7 +1407,7 @@ css_error node_has_attribute_equal(void *pw, void *node,
  * \param value  Value to match
  * \param match  Pointer to location to receive result
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  *
  * \post \a match will contain true if the node matches and false otherwise.
  */
@@ -1322,7 +1430,7 @@ css_error node_has_attribute_dashmatch(void *pw, void *node,
  * \param value  Value to match
  * \param match  Pointer to location to receive result
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  *
  * \post \a match will contain true if the node matches and false otherwise.
  */
@@ -1345,7 +1453,7 @@ css_error node_has_attribute_includes(void *pw, void *node,
  * \param value  Value to match
  * \param match  Pointer to location to receive result
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  *
  * \post \a match will contain true if the node matches and false otherwise.
  */
@@ -1368,7 +1476,7 @@ css_error node_has_attribute_prefix(void *pw, void *node,
  * \param value  Value to match
  * \param match  Pointer to location to receive result
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  *
  * \post \a match will contain true if the node matches and false otherwise.
  */
@@ -1391,7 +1499,7 @@ css_error node_has_attribute_suffix(void *pw, void *node,
  * \param value  Value to match
  * \param match  Pointer to location to receive result
  * \return CSS_OK on success,
- *         CSS_NOMEM on memory exhaustion.
+ *	 CSS_NOMEM on memory exhaustion.
  *
  * \post \a match will contain true if the node matches and false otherwise.
  */
@@ -1423,8 +1531,8 @@ css_error node_is_root(void *pw, void *node, bool *match)
 /**
  * Callback to count a node's siblings.
  *
- * \param pw         HTML document
- * \param n          DOM node
+ * \param pw	 HTML document
+ * \param n	  DOM node
  * \param same_name  Only count siblings with the same name, or all
  * \param after      Count anteceding instead of preceding siblings
  * \param count      Pointer to location to receive result
@@ -1436,7 +1544,7 @@ css_error node_count_siblings(void *pw, void *n, bool same_name,
 		bool after, int32_t *count)
 {
 	UNUSED(pw);
-        lwc_string* node = n;
+	lwc_string* node = n;
 	const char* node_string = lwc_string_data(node);
 
 	*count = (int32_t) (*js_node_count_siblings)(
@@ -1645,11 +1753,11 @@ css_error node_presentational_hint(void *pw, void *node,
 /**
  * Callback to retrieve the User-Agent defaults for a CSS property.
  *
- * \param pw        HTML document
+ * \param pw	HTML document
  * \param property  Property to retrieve defaults for
  * \param hint      Pointer to hint object to populate
  * \return CSS_OK       on success,
- *         CSS_INVALID  if the property should not have a user-agent default.
+ *	 CSS_INVALID  if the property should not have a user-agent default.
  */
 css_error ua_default_for_property(void *pw, uint32_t property, css_hint *hint)
 {
@@ -1681,7 +1789,7 @@ css_error ua_default_for_property(void *pw, uint32_t property, css_hint *hint)
 css_error set_libcss_node_data(void *pw, void *node, void *libcss_node_data)
 {
 	UNUSED(pw);
-        lwc_string* node_str = node;
+	lwc_string* node_str = node;
 	update_node(node_str, NULL, libcss_node_data);
 	return CSS_OK;
 }
@@ -1689,7 +1797,7 @@ css_error set_libcss_node_data(void *pw, void *node, void *libcss_node_data)
 css_error get_libcss_node_data(void *pw, void *node, void **libcss_node_data)
 {
 	UNUSED(pw);
-        lwc_string* node_str = node;
+	lwc_string* node_str = node;
 	css_js_node* nd = get_node_by_id(node_str);
 	if (nd == NULL) {
 		*libcss_node_data = NULL;

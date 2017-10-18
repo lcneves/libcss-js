@@ -112,6 +112,8 @@ const error = [
   'Unable to destroy computed style for element!',
   'Unable to destroy node data for element!',
   'Invalid CSS level!',
+  'Invalid CSS origin!',
+  'Invalid CSS media!',
   'Unable to append data to stylesheet!',
   'Unable to declare the data on the stylesheet as done!',
   'Unable to append stylesheet to selection context!',
@@ -509,21 +511,26 @@ module.exports.init = function (clientHandlers) {
   };
 }
 
-module.exports.getStyle = function (node, pseudo) {
+module.exports.getStyle = function (node, options) {
   if (typeof node !== 'string')
     throw new Error('Node identifier must be a string!');
 
+  if (typeof options !== 'object' || options === null) options = {};
+
   const supportedPseudo = [
     'none', 'first-line', 'first-letter', 'before', 'after'];
-  if (typeof pseudo !== 'undefined') {
-    if (supportedPseudo.indexOf(pseudo) === -1) {
+  if (typeof options.pseudo !== 'undefined') {
+    if (supportedPseudo.indexOf(options.pseudo) === -1) {
       throw new Error('Supported values for pseudo-elements are ' +
         JSON.stringify(supportedPseudo));
     }
   }
   else {
-    pseudo = 'none';
+    options.pseudo = 'none';
   }
+
+  if (typeof options.media !== 'string')
+    options.media = 'all';
 
   var inlineStyle = '';
   var attributes = ch.getAttributes(node);
@@ -537,18 +544,19 @@ module.exports.getStyle = function (node, pseudo) {
   const resultsLength = 8192; // Same as in libcss's selection test.
   var resultsPtr = lh.Module._malloc(resultsLength);
   var nodePtr = pointerize(node);
-  var pseudoPtr = pointerize(pseudo);
+  var pseudoPtr = pointerize(options.pseudo);
+  var mediaPtr = pointerize(options.media);
   var inlinePtr = pointerize(inlineStyle);
 
   var err = lh.getStyle(
-    nodePtr, pseudoPtr, inlinePtr, resultsPtr, resultsLength);
+    nodePtr, pseudoPtr, mediaPtr, inlinePtr, resultsPtr, resultsLength);
   if (error[err] !== 'OK') {
-    free(nodePtr, pseudoPtr, inlinePtr, resultsPtr);
+    free(nodePtr, pseudoPtr, mediaPtr, inlinePtr, resultsPtr);
     throw new Error(error[err]);
   }
 
   var results = lh.Module.Pointer_stringify(resultsPtr);
-  free(nodePtr, pseudoPtr, inlinePtr, resultsPtr);
+  free(nodePtr, pseudoPtr, mediaPtr, inlinePtr, resultsPtr);
 
   var resultsArr = results.split('\n');
   var resultsObj = {};
@@ -570,14 +578,28 @@ module.exports.addSheet = function (sheet, options) {
 
   if (options === null || typeof options !== 'object') options = {};
   if (typeof options.level !== 'string') options.level = '3';
+  if (typeof options.origin !== 'string') options.origin = 'author';
   if (typeof options.url !== 'string') options.url = '';
+
+  var media = '';
+  if (Array.isArray(options.media)) {
+    for (let str of options.media) {
+      if (typeof str === 'string') {
+        if (media.length > 0) media += ',';
+        media += str.trim();
+      }
+    }
+  }
+  if (media === '') media = 'all';
 
   var sheetPtr = pointerize(sheet);
   var levelPtr = pointerize(options.level);
+  var originPtr = pointerize(options.origin);
+  var mediaPtr = pointerize(media);
   var urlPtr = pointerize(options.url);
 
-  var err = lh.addSheet(sheetPtr, levelPtr, urlPtr);
-  free(sheetPtr, levelPtr, urlPtr);
+  var err = lh.addSheet(sheetPtr, levelPtr, originPtr, mediaPtr, urlPtr);
+  free(sheetPtr, levelPtr, originPtr, mediaPtr, urlPtr);
 
   if (error[err] !== 'OK')
     throw new Error(error[err]);

@@ -22,10 +22,10 @@
 #define UNUSED(x) ((x) = (x))
 
 typedef enum css_js_error {
-	CSS_JS_OK                =  0,
-	CSS_JS_ELEMENT           =  1,
-	CSS_JS_PSEUDO            =  2,
-	CSS_JS_CREATE_CTX        =  3,
+	CSS_JS_OK		=  0,
+	CSS_JS_ELEMENT	   =  1,
+	CSS_JS_PSEUDO	    =  2,
+	CSS_JS_CREATE_CTX	=  3,
 	CSS_JS_CREATE_SHEET      =  4,
 	CSS_JS_CREATE_STYLE      =  5,
 	CSS_JS_COMPOSE_STYLE     =  6,
@@ -33,11 +33,13 @@ typedef enum css_js_error {
 	CSS_JS_DESTROY_SHEET     =  8,
 	CSS_JS_DESTROY_STYLE     =  9,
 	CSS_JS_DESTROY_NODE_DATA = 10,
-	CSS_JS_LEVEL             = 11,
-	CSS_JS_APPEND_DATA       = 12,
-	CSS_JS_DATA_DONE         = 13,
-	CSS_JS_APPEND_SHEET      = 14,
-	CSS_JS_HANDLER_LENGTH    = 15
+	CSS_JS_LEVEL	     = 11,
+	CSS_JS_ORIGIN	    = 12,
+	CSS_JS_MEDIA	     = 13,
+	CSS_JS_APPEND_DATA       = 14,
+	CSS_JS_DATA_DONE	 = 15,
+	CSS_JS_APPEND_SHEET      = 16,
+	CSS_JS_HANDLER_LENGTH    = 17
 } css_js_error;
 
 /*
@@ -52,13 +54,6 @@ struct css_js_node {
 };
 typedef struct css_js_node css_js_node;
 
-css_js_node* get_last_node (void);
-css_js_node* get_node_by_id (lwc_string* id);
-css_js_node* append_node (
-		lwc_string* id, css_select_results* new_sr, void* new_data);
-css_js_node* update_node (
-		lwc_string* id, css_select_results* new_sr, void* new_data);
-
 /*
  * Linked list of pointers to css_stylesheet.
  * Its purpose is to track all stylesheets so they can be freed.
@@ -68,9 +63,6 @@ struct stylesheet_list {
 	struct stylesheet_list* next;
 };
 typedef struct stylesheet_list stylesheet_list;
-
-css_js_error append_stylesheet_list (css_stylesheet* new_sheet);
-css_js_error free_stylesheet_list (stylesheet_list* sheet);
 
 /*
  * Resets the selection context (i.e. removes all added CSS stylesheets).
@@ -83,11 +75,46 @@ css_js_error reset_ctx (void);
  * 	css_string: a string of CSS text to be added to the selection context.
  * 	level: a string that specifies the language level of the CSS code.
  * 		Accepted values are "1", "2", "2.1" and "3".
+ * 	origin: a string that specifies the origin of the stylesheet.
+ * 		Accepted values are "ua", "UA", "user agent", "user-agent",
+ * 		"user" and "author".
+ * 	media: a string that specifies to which media the stylesheet
+ * 		should apply.
+ * 		Values should be comma-separated. No whitespaces are allowed.
+ * 		Accepted values are "all", "tv", "tty", "aural", "print",
+ * 		"screen", "speech", "braille", "embossed", "handheld" and
+ * 		"projection".
  * 	url: a string that specifies the base URL for the stylesheet.
  * 		If none, should be "" (empty string).
  */
 css_js_error add_stylesheet (const char* css_string, const char* level,
-		const char* url);
+		const char* origin, const char* media, const char* url);
+
+/*
+ * Gets the computed style for an element as a string identical to libcss's
+ * selection test output.
+ * Parameters:
+ * 	element: a string that uniquely identifies the element being queried.
+ * 	pseudo: a string that specifies the pseudo-element being queried.
+ * 		Accepted values are "none", "first-line", "first-letter",
+ * 		"before" and "after".
+ * 	origin: a string that specifies the origin of the stylesheet.
+ * 		Accepted values are "ua", "UA", "user agent", "user-agent",
+ * 		"user" and "author".
+ * 	media: a string that specifies the media being queried.
+ * 		Accepted values are "all", "tv", "tty", "aural", "print",
+ * 		"screen", "speech", "braille", "embossed", "handheld" and
+ * 		"projection".
+ * 	inline_style: a string of CSS to be parsed as inline style.
+ * 		If none, should be "" (empty string).
+ * 	results: a pointer to a buffer in the heap of size <len>.
+ * 	len: the size of the aforementioned buffer. Must be large enough
+ * 		to fit the results. In libcss's original code, the value
+ * 		of 8192 is used.
+ */
+css_js_error get_style (const char* element, const char* pseudo,
+			const char* media, const char* inline_style,
+			char* results, size_t len);
 
 /*
  * Sets the Javascript handler functions.

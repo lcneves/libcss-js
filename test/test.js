@@ -17,6 +17,9 @@ const DEFAULT_FONT_SIZE = 12;
 var root = null;
 var count = 0;
 var elements = {};
+var origin = '';
+var media = '';
+var targetMedia = '';
 
 function getElementById (identifier) {
   if (typeof elements[identifier] === 'undefined')
@@ -138,7 +141,23 @@ fs.readFile(
 
       let lines = testParts[0].split('\n').map((item) => item.trim());
       for (let line of lines) {
-        if (!line || line.indexOf('#') === 0) continue;
+        if (!line || line.indexOf('#') === 0) {
+          line = line.substring(1).trim().split(' ');
+          switch (line[0]) {
+            case 'ua':
+            case 'user':
+            case 'author':
+              origin = line[0];
+              media = (line[1] === undefined) ? 'all' : line[1];
+              break;
+            case 'tree':
+              targetMedia = (line[1] === undefined) ? 'all' : line[1];
+              break;
+            default:
+              break;
+          }
+          continue;
+        }
 
         if (line.indexOf('|') === 0) {
           line = line.substring(1);
@@ -168,12 +187,12 @@ fs.readFile(
           }
         }
         else {
-          parsedCSS.push(line);
-          libcss.addSheet(line);
+          parsedCSS.push({ css: line, origin: origin, media: media });
+          libcss.addSheet(line, { origin: origin, media: media });
         }
       }
 
-      let results = libcss.getStyle(queryElement.id);
+      let results = libcss.getStyle(queryElement.id, { media: targetMedia });
       let err = '';
 
       for (let property in expectedResults) {
@@ -186,10 +205,15 @@ fs.readFile(
         }
       }
       if (err) {
+        console.log('\n');
         console.error('Test ' + testNum + ' FAIL!' + '\n' + err);
+        console.info('Tree:');
         console.dir(root, { depth: null });
-        console.info('Query: ' + queryElement.id);
+        console.info('Querying element: ' + queryElement.id);
+        console.info("Querying media: " + targetMedia);
+        console.info('CSS:');
         console.dir(parsedCSS);
+        console.log('\n');
       } else {
         console.info('Test ' + testNum + ' PASS!');
       }
