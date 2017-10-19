@@ -24,6 +24,7 @@ var elements = {};
 var origin = '';
 var media = '';
 var targetMedia = '';
+var succeeded = true;
 
 function getElementById (identifier) {
   if (typeof elements[identifier] === 'undefined')
@@ -210,6 +211,7 @@ fs.readFile(
         }
       }
       if (err) {
+        succeeded = false;
         console.log('\n');
         console.error('Test ' + testNum + textRed + ' FAIL!' + textReset);
         console.error(err);
@@ -227,5 +229,9 @@ fs.readFile(
       elements = {};
       libcss.reset();
     }
+    if (succeeded)
+      console.info('Selection test succeeded!');
+    else
+      throw new Error('Selection test failed!');
   }
 );
