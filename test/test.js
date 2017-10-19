@@ -14,6 +14,10 @@ const libcss = require('../index.js');
 
 const DEFAULT_FONT_SIZE = 12;
 
+const textRed = "\x1b[31m";
+const textGreen = "\x1b[32m";
+const textReset = "\x1b[0m";
+
 var root = null;
 var count = 0;
 var elements = {};
@@ -207,7 +211,8 @@ fs.readFile(
       }
       if (err) {
         console.log('\n');
-        console.error('Test ' + testNum + ' FAIL!' + '\n' + err);
+        console.error('Test ' + testNum + textRed + ' FAIL!' + textReset);
+        console.error(err);
         console.info('Tree:');
         console.dir(root, { depth: null });
         console.info('Querying element: ' + queryElement.id);
@@ -216,7 +221,7 @@ fs.readFile(
         console.dir(parsedCSS);
         console.log('\n');
       } else {
-        console.info('Test ' + testNum + ' PASS!');
+        console.info('Test ' + testNum + textGreen + ' PASS!' + textReset);
       }
       testNum++;
       elements = {};
