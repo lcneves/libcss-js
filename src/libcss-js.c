@@ -15,10 +15,10 @@ css_js_error set_handlers(uint64_t* arr, size_t len);
 css_js_error create_ctx (void);
 css_js_error append_stylesheet_list (css_stylesheet* new_sheet);
 css_js_error free_stylesheet_list (stylesheet_list** sheet_ptr);
-css_js_error build_style(lwc_string* node, uint64_t media,
+css_js_error build_style(lwc_string* node, css_media_type media,
 		const char* inline_style, css_select_results** results);
 css_js_error build_node_sr (lwc_string* node_str, css_pseudo_element pseudo,
-		uint64_t media, const char* inline_style,
+		css_media_type media, const char* inline_style,
 		css_js_node** ret_node);
 css_js_node* get_last_node (void);
 css_js_node* get_node_by_id (lwc_string* id);
@@ -551,7 +551,7 @@ css_js_error add_stylesheet (
 
 	const char *p = media;
 	const char *end = p + strlen(media);
-	uint64_t media_result = 0;
+	css_media_type media_result = 0;
 
 	/* <medium> [ ',' <medium> ]* */
 
@@ -561,6 +561,8 @@ css_js_error add_stylesheet (
 		/* consume a medium */
 		while (*p != ',' && p < end)
 			p++;
+
+                // printf("%s %d\n", start, p - start);
 
 		if (p - start == 10 &&
 				strncasecmp(start, "projection", 10) == 0)
@@ -651,6 +653,7 @@ css_js_error add_stylesheet (
 			return js_error;
 	}
 
+        // printf("Appending stylesheet for media %d\n", media_result);
 	code = css_select_ctx_append_sheet(
 			select_ctx,
 			sheet,
@@ -667,7 +670,7 @@ css_js_error add_stylesheet (
  * Warning: if inline_style is set, the resulting stylesheet will not
  * be destroyed! This implementation leaks memory.
  */
-css_js_error build_style(lwc_string* node, uint64_t media,
+css_js_error build_style(lwc_string* node, css_media_type media,
 		      const char* inline_style,
 		      css_select_results** results)
 {
@@ -721,6 +724,7 @@ css_js_error build_style(lwc_string* node, uint64_t media,
 			return js_error;
 	}
 
+        // printf("Creating sr for node %s and media %d\n", lwc_string_data(node), media);
 	code = css_select_style(
 			select_ctx,
 			node,
@@ -737,7 +741,7 @@ css_js_error build_style(lwc_string* node, uint64_t media,
 }
 
 css_js_error build_node_sr (lwc_string* node_id, css_pseudo_element pseudo,
-		uint64_t media, const char* inline_style,
+		css_media_type media, const char* inline_style,
 		css_js_node** ret_node)
 {
 	css_error code;
@@ -808,7 +812,7 @@ css_js_error get_style (const char* element, const char* pseudo,
 	else
 		return CSS_JS_PSEUDO;
 
-	uint64_t media_code;
+	css_media_type media_code;
 	if (strcmp(media, "all") == 0)
 		media_code = CSS_MEDIA_ALL;
 	else if (strcmp(media, "tv") == 0)
@@ -1120,19 +1124,18 @@ css_error node_classes(void *pw, void *node,
 
 	size_t current_class_s = strlen(js_results) + 1;
 	char current_class[current_class_s];
-	int offset = 0;
+	strcpy(current_class, "");
 	int classes_processed = 0;
-	size_t cur_len;
+	size_t len = strlen(js_results);
 	lwc_string* class_name = NULL;
 	current_c = js_results;
-	while (current_c[offset] != '\0')
+	for (int offset = 0; offset < len; offset++)
 	{
 		switch (current_c[offset])
 		{
 			case '"':
 			case '[':
 			case ' ':
-				offset++;
 				break;
 
 			case ',':
@@ -1143,16 +1146,13 @@ css_error node_classes(void *pw, void *node,
 						&class_name);
 				ptr_array[classes_processed] =
 					lwc_string_ref(class_name);
-				current_class[0] = '\0';
+                                lwc_string_unref(class_name);
+				strcpy(current_class, "");
 				classes_processed++;
-				offset++;
 				break;
 
 			default:
-				cur_len = strlen(current_class);
-				current_class[cur_len] = current_c[offset];
-				current_class[cur_len + 1] = '\0';
-				offset++;
+				strncat(current_class, current_c + offset, 1);
 				break;
 		}
 	}
@@ -1161,9 +1161,9 @@ css_error node_classes(void *pw, void *node,
 	*n_classes = num;
 
 	// printf("Number of classes: %d\n", *n_classes);
-	for (int i = 0; i < *n_classes; i++) {
-	  // printf("Class %d: %s\n", i, lwc_string_data(*classes[i]));
-	}
+	// for (int i = 0; i < *n_classes; i++) {
+	//   printf("Class %d: %s length: %d\n", i, lwc_string_data((*classes)[i]), strlen(lwc_string_data((*classes)[i])));
+	// }
 
 	free(js_results);
 	return CSS_OK;

@@ -115,8 +115,7 @@ function findParent(currentElement, currentDepth, newDepth) {
 }
 
 fs.readFile(
-  path.join(__dirname,
-    '..', 'src', 'libcss', 'test', 'data', 'select', 'tests1.dat'),
+  path.join(__dirname, 'tests1.dat'),
   'utf8',
   (err, data) => {
     if (err) throw err;
@@ -142,21 +141,23 @@ fs.readFile(
       let lines = testParts[0].split('\n').map((item) => item.trim());
       for (let line of lines) {
         if (!line || line.indexOf('#') === 0) {
-          line = line.substring(1).trim().split(' ');
-          switch (line[0]) {
+          let lineArr = line.substring(1).trim().split(' ');
+          switch (lineArr[0]) {
             case 'ua':
             case 'user':
             case 'author':
-              origin = line[0];
-              media = (line[1] === undefined) ? 'all' : line[1];
-              break;
+              origin = lineArr[0];
+              media = (lineArr[1] === undefined) ? ['all'] : [lineArr[1]];
+              continue;
             case 'tree':
-              targetMedia = (line[1] === undefined) ? 'all' : line[1];
-              break;
+              targetMedia = (lineArr[1] === undefined) ? 'all' : lineArr[1];
+              continue;
+            case 'errors':
+              continue;
             default:
+              // Must be CSS starting with an id selector
               break;
           }
-          continue;
         }
 
         if (line.indexOf('|') === 0) {
