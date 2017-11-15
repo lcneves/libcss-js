@@ -2,12 +2,12 @@
 Parses CSS and lets you query the style of the elements in your document tree.
 Uses the [NetSurf browser's LibCSS](www.netsurf-browser.org/projects/libcss/), transpiled to JavaScript.
 
-##Installation
+## Installation
 ```
 npm install libcss
 ```
 
-##Usage
+## Usage
 Consider the following document tree:
 ```html
 <div id="parent">
@@ -38,7 +38,7 @@ console.log(style['color']);
 // 'green'
 ```
 
-###libcss.init(&lt;object&rt;)
+### libcss.init(&lt;object>;)
 This method must be called before queries are made. The only parameter provided should be an object. All members of this object must be functions that receive only one parameter: a string that uniquely identifies an element in your document tree.
 
 The following example provides all the required handlers to libcss-js. For simplicity, we will use the element id as the identifier string, but you should use something more consistent, such as a hash or a UUID:
