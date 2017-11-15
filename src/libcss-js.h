@@ -22,10 +22,10 @@
 #define UNUSED(x) ((x) = (x))
 
 typedef enum css_js_error {
-	CSS_JS_OK		=  0,
-	CSS_JS_ELEMENT	   =  1,
-	CSS_JS_PSEUDO	    =  2,
-	CSS_JS_CREATE_CTX	=  3,
+	CSS_JS_OK		 =  0,
+	CSS_JS_ELEMENT	         =  1,
+	CSS_JS_PSEUDO	         =  2,
+	CSS_JS_CREATE_CTX	 =  3,
 	CSS_JS_CREATE_SHEET      =  4,
 	CSS_JS_CREATE_STYLE      =  5,
 	CSS_JS_COMPOSE_STYLE     =  6,
@@ -33,9 +33,9 @@ typedef enum css_js_error {
 	CSS_JS_DESTROY_SHEET     =  8,
 	CSS_JS_DESTROY_STYLE     =  9,
 	CSS_JS_DESTROY_NODE_DATA = 10,
-	CSS_JS_LEVEL	     = 11,
-	CSS_JS_ORIGIN	    = 12,
-	CSS_JS_MEDIA	     = 13,
+	CSS_JS_LEVEL	         = 11,
+	CSS_JS_ORIGIN	         = 12,
+	CSS_JS_MEDIA	         = 13,
 	CSS_JS_APPEND_DATA       = 14,
 	CSS_JS_DATA_DONE	 = 15,
 	CSS_JS_APPEND_SHEET      = 16,
