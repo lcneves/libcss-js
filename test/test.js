@@ -119,11 +119,18 @@ function findParent(currentElement, currentDepth, newDepth) {
   return parentElement;
 }
 
+var dat_path = path.join(__dirname, '..', 'src', 'libcss', 'test', 'data',
+  'select', 'tests1.dat');
+try {
+fs.statSync(dat_path, fs.constants.R_OK);
+} catch (e) {
+  dat_path = path.join(__dirname, 'tests1.dat');
+}
 fs.readFile(
-  path.join(__dirname, 'tests1.dat'),
-  'utf8',
-  (err, data) => {
+  path.join(dat_path), 'utf8', (err, data) => {
     if (err) throw err;
+
+    console.info('Using data file ' + dat_path);
 
     var testDataArr = data.split('#reset').map((item) => item.trim());
     var testNum = 1;
