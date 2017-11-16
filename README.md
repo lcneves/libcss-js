@@ -37,7 +37,7 @@ libcss.addSheet(css2);
 var parStyle = libcss.getStyle('a-paragraph');
 var boxStyle = libcss.getStyle('box');
 console.log(parStyle['color']);
-// '#0000ff00', formated as #aarrggbb
+// '#ff00ff00', formated as #aarrggbb
 console.log(boxStyle['width']);
 // '70em'
 
@@ -45,7 +45,7 @@ libcss.dropSheets()
 parStyle = libcss.getStyle('a-paragraph');
 boxStyle = libcss.getStyle('box');
 console.log(parStyle['color']);
-// '#00000000'
+// '#ff000000'
 console.log(boxStyle['width']);
 // 'auto'
 
