@@ -580,6 +580,7 @@ module.exports.addSheet = function (sheet, options) {
   if (typeof options.level !== 'string') options.level = '3';
   if (typeof options.origin !== 'string') options.origin = 'author';
   if (typeof options.url !== 'string') options.url = '';
+  if (typeof options.allowQuirks !== 'boolean') options.allowQuirks = false;
 
   var media = '';
   if (Array.isArray(options.media)) {
@@ -598,14 +599,15 @@ module.exports.addSheet = function (sheet, options) {
   var mediaPtr = pointerize(media);
   var urlPtr = pointerize(options.url);
 
-  var err = lh.addSheet(sheetPtr, levelPtr, originPtr, mediaPtr, urlPtr);
+  var err = lh.addSheet(sheetPtr, levelPtr, originPtr, mediaPtr, urlPtr,
+    options.allowQuirks);
   free(sheetPtr, levelPtr, originPtr, mediaPtr, urlPtr);
 
   if (error[err] !== 'OK')
     throw new Error(error[err]);
 }
 
-module.exports.reset = function () {
+module.exports.dropSheets = function () {
   var err = lh.resetCtx();
   if (error[err] !== 'OK')
     throw new Error(error[err]);

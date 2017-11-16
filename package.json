@@ -1,6 +1,6 @@
 {
   "name": "libcss",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "CSS parser and selection library.",
   "main": "index.js",
   "directories": {
@@ -17,7 +17,8 @@
   },
   "keywords": [
     "CSS",
-    "libcss"
+    "libcss",
+    "webdesign"
   ],
   "author": "Lucas Neves",
   "license": "MIT",

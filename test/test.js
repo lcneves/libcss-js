@@ -234,7 +234,7 @@ fs.readFile(
       }
       testNum++;
       elements = {};
-      libcss.reset();
+      libcss.dropSheets();
     }
     if (succeeded)
       console.info('Selection test succeeded!');

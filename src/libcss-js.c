@@ -518,7 +518,8 @@ css_js_error add_stylesheet (
 		const char* level,
 		const char* origin,
 		const char* media,
-		const char* url
+		const char* url,
+                bool allow_quirks
 		)
 {
 	css_error code;
@@ -614,7 +615,7 @@ css_js_error add_stylesheet (
 	params.charset = NULL;
 	params.url = url;
 	params.title = NULL;
-	params.allow_quirks = false;
+	params.allow_quirks = allow_quirks;
 	params.inline_style = false;
 	params.resolve = resolve_url;
 	params.resolve_pw = NULL;

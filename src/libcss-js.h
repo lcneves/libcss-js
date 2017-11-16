@@ -88,7 +88,8 @@ css_js_error reset_ctx (void);
  * 		If none, should be "" (empty string).
  */
 css_js_error add_stylesheet (const char* css_string, const char* level,
-		const char* origin, const char* media, const char* url);
+		const char* origin, const char* media, const char* url,
+                bool allow_quirks);
 
 /*
  * Gets the computed style for an element as a string identical to libcss's
