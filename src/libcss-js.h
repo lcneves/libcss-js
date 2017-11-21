@@ -17,7 +17,7 @@
 #include <string.h>
 
 #include <libcss/libcss.h>
-#include "libcss/test/dump_computed.h"
+#include "libcss-w3d/test/dump_computed.h"
 
 #define UNUSED(x) ((x) = (x))
 

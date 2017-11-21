@@ -7,3 +7,6 @@
 [submodule "src/libwapcaplet"]
 	path = src/libwapcaplet
 	url = ssh://nsgit@git.netsurf-browser.org/libwapcaplet.git
+[submodule "src/libcss-w3d"]
+	path = src/libcss-w3d
+	url = git@github.com:lcneves/libcss-w3d.git

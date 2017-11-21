@@ -119,12 +119,12 @@ function findParent(currentElement, currentDepth, newDepth) {
   return parentElement;
 }
 
-var testFiles = [ 'tests1.dat' ];
+var testFiles = [ 'tests1.dat', 'w3d.dat' ];
 var paths = [];
 // Attempt to find .dat files in LibCSS's select test dir; fallback to current
 // directory if not found.
 for (let f of testFiles) {
-  var dat_path = path.join(__dirname, '..', 'src', 'libcss', 'test', 'data',
+  var dat_path = path.join(__dirname, '..', 'src', 'libcss-w3d', 'test', 'data',
     'select', f);
   try {
     fs.statSync(dat_path, fs.constants.R_OK);
