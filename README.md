@@ -1,10 +1,11 @@
-# libcss-js
+# libcss-w3d
 Parses CSS and lets you query the computed style of elements in your document tree.
 Uses the [NetSurf browser's LibCSS](http://www.netsurf-browser.org/projects/libcss/), transpiled to JavaScript.
+This fork of [libcss-js](https://www.npmjs.com/package/libcss) adds support to properties of the w3d framework.
 
 ## Installation
 ```
-npm install libcss
+npm install libcss-w3d
 ```
 
 
@@ -24,7 +25,7 @@ Consider the following document tree:
 _Note: libcss-js will work with any document tree, not only HTML!_
 
 ```javascript
-var libcss = require('libcss');
+var libcss = require('libcss-w3d');
 
 var handlers = { /* see below */ };
 libcss.init(handlers);

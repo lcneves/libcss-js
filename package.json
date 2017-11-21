@@ -1,6 +1,6 @@
 {
   "name": "libcss-w3d",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "CSS parser and selection library with w3d properties.",
   "main": "index.js",
   "directories": {
