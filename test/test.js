@@ -119,126 +119,136 @@ function findParent(currentElement, currentDepth, newDepth) {
   return parentElement;
 }
 
-var dat_path = path.join(__dirname, '..', 'src', 'libcss', 'test', 'data',
-  'select', 'tests1.dat');
-try {
-fs.statSync(dat_path, fs.constants.R_OK);
-} catch (e) {
-  dat_path = path.join(__dirname, 'tests1.dat');
+var testFiles = [ 'tests1.dat' ];
+var paths = [];
+// Attempt to find .dat files in LibCSS's select test dir; fallback to current
+// directory if not found.
+for (let f of testFiles) {
+  var dat_path = path.join(__dirname, '..', 'src', 'libcss', 'test', 'data',
+    'select', f);
+  try {
+    fs.statSync(dat_path, fs.constants.R_OK);
+  } catch (e) {
+    dat_path = path.join(__dirname, f);
+  }
+  paths.push(dat_path);
 }
-fs.readFile(
-  path.join(dat_path), 'utf8', (err, data) => {
-    if (err) throw err;
 
-    console.info('Using data file ' + dat_path);
+for (let dat_path of paths) {
+  runTest(dat_path);
+}
 
-    var testDataArr = data.split('#reset').map((item) => item.trim());
-    var testNum = 1;
+function runTest (dat_path) {
+  var data = fs.readFileSync(dat_path, 'utf8');
+  console.info('Using data file ' + dat_path);
 
-    for (let testData of testDataArr) {
-      if (!testData) continue;
-      if (testData.indexOf('#expected') === -1) continue;
+  var testDataArr = data.split('#reset').map((item) => item.trim());
+  var testNum = 1;
 
-      let testParts = testData.split('#expected').map((item) => item.trim());
+  for (let testData of testDataArr) {
+    if (!testData) continue;
+    if (testData.indexOf('#expected') === -1) continue;
 
-      let expectedResults = parseExpected(testParts[1]);
+    let testParts = testData.split('#expected').map((item) => item.trim());
 
-      root = makeElement('root', null, count++);
-      let currentElement = root;
-      let currentDepth = 0;
-      let queryElement = null;
+    let expectedResults = parseExpected(testParts[1]);
 
-      let parsedCSS = [];
+    root = makeElement('root', null, count++);
+    let currentElement = root;
+    let currentDepth = 0;
+    let queryElement = null;
 
-      let lines = testParts[0].split('\n').map((item) => item.trim());
-      for (let line of lines) {
-        if (!line || line.indexOf('#') === 0) {
-          let lineArr = line.substring(1).trim().split(' ');
-          switch (lineArr[0]) {
-            case 'ua':
-            case 'user':
-            case 'author':
-              origin = lineArr[0];
-              media = (lineArr[1] === undefined) ? ['all'] : [lineArr[1]];
-              continue;
-            case 'tree':
-              targetMedia = (lineArr[1] === undefined) ? 'all' : lineArr[1];
-              continue;
-            case 'errors':
-              continue;
-            default:
-              // Must be CSS starting with an id selector
-              break;
-          }
+    let parsedCSS = [];
+
+    let lines = testParts[0].split('\n').map((item) => item.trim());
+    for (let line of lines) {
+      if (!line || line.indexOf('#') === 0) {
+        let lineArr = line.substring(1).trim().split(' ');
+        switch (lineArr[0]) {
+          case 'ua':
+          case 'user':
+          case 'author':
+            origin = lineArr[0];
+            media = (lineArr[1] === undefined) ? ['all'] : [lineArr[1]];
+            continue;
+          case 'tree':
+            targetMedia = (lineArr[1] === undefined) ? 'all' : lineArr[1];
+            continue;
+          case 'errors':
+            continue;
+          default:
+            // Must be CSS starting with an id selector
+            break;
         }
+      }
 
-        if (line.indexOf('|') === 0) {
-          line = line.substring(1);
+      if (line.indexOf('|') === 0) {
+        line = line.substring(1);
 
-          if (line.indexOf('=') !== -1) {
-            let params = line.split('=').map((item) => item.trim());
-            let attribute = { attribute: params[0], value: params[1] };
-            currentElement.attributes.push(attribute);
-          }
-          else {
-            let depth = elementDepth(line);
-            let parentElement = findParent(currentElement, currentDepth, depth);
-            let query = false;
-            let starIndex = line.indexOf('*');
-            if (starIndex !== -1) {
-              query = true;
-              line = line.slice(0, -1);
-            }
-
-            let newElement = makeElement(line.trim(), parentElement, count++);
-            if (query) {
-              queryElement = newElement;
-            }
-
-            currentElement = newElement;
-            currentDepth = depth;
-          }
+        if (line.indexOf('=') !== -1) {
+          let params = line.split('=').map((item) => item.trim());
+          let attribute = { attribute: params[0], value: params[1] };
+          currentElement.attributes.push(attribute);
         }
         else {
-          parsedCSS.push({ css: line, origin: origin, media: media });
-          libcss.addSheet(line, { origin: origin, media: media });
-        }
-      }
-
-      let results = libcss.getStyle(queryElement.id, { media: targetMedia });
-      let err = '';
-
-      for (let property in expectedResults) {
-        if (expectedResults.hasOwnProperty(property)) {
-          if (results[property] !== expectedResults[property]) {
-            err +=
-              'Expected: ' + property + ': ' + expectedResults[property] + '\n'
-              + 'Verified: ' + property + ': ' + results[property] + '\n';
+          let depth = elementDepth(line);
+          let parentElement = findParent(currentElement, currentDepth, depth);
+          let query = false;
+          let starIndex = line.indexOf('*');
+          if (starIndex !== -1) {
+            query = true;
+            line = line.slice(0, -1);
           }
+
+          let newElement = makeElement(line.trim(), parentElement, count++);
+          if (query) {
+            queryElement = newElement;
+          }
+
+          currentElement = newElement;
+          currentDepth = depth;
         }
       }
-      if (err) {
-        succeeded = false;
-        console.log('\n');
-        console.error('Test ' + testNum + textRed + ' FAIL!' + textReset);
-        console.error(err);
-        console.info('Tree:');
-        console.dir(root, { depth: null });
-        console.info('Querying element: ' + queryElement.id);
-        console.info("Querying media: " + targetMedia);
-        console.info('CSS:');
-        console.dir(parsedCSS);
-        console.log('\n');
-      } else {
-        console.info('Test ' + testNum + textGreen + ' PASS!' + textReset);
+      else {
+        parsedCSS.push({ css: line, origin: origin, media: media });
+        libcss.addSheet(line, { origin: origin, media: media });
       }
-      testNum++;
-      elements = {};
-      libcss.dropSheets();
     }
-    if (succeeded)
-      console.info('Selection test succeeded!');
-    else
-      throw new Error('Selection test failed!');
+
+    let results = libcss.getStyle(queryElement.id, { media: targetMedia });
+    let err = '';
+
+    for (let property in expectedResults) {
+      if (expectedResults.hasOwnProperty(property)) {
+        if (results[property] !== expectedResults[property]) {
+          err +=
+            'Expected: ' + property + ': ' + expectedResults[property] + '\n'
+            + 'Verified: ' + property + ': ' + results[property] + '\n';
+        }
+      }
+    }
+    if (err) {
+      succeeded = false;
+      console.log('\n');
+      console.error('Test ' + testNum + textRed + ' FAIL!' + textReset);
+      console.error(err);
+      console.info('Tree:');
+      console.dir(root, { depth: null });
+      console.info('Querying element: ' + queryElement.id);
+      console.info("Querying media: " + targetMedia);
+      console.info('CSS:');
+      console.dir(parsedCSS);
+      console.log('\n');
+    } else {
+      console.info('Test ' + testNum + textGreen + ' PASS!' + textReset);
+    }
+    testNum++;
+    elements = {};
+    libcss.dropSheets();
   }
-);
+  if (succeeded)
+    console.info('Selection test succeeded!');
+  else
+    throw new Error('Selection test failed!');
+  console.log('');
+}
