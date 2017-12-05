@@ -88,24 +88,26 @@ libcss.init({
   },
 
   getSiblings: function (identifier) {
-    // Must return an array of identifier strings.
+    // Must return an array of objects that describe the siblings.
+    // Format: { tagName: <string>, identifier: <string> }
     // This array must contain, in order, all of the parent's children,
     // including the element being queried.
     var element = document.getElementById(identifier);
     var sibs = [];
     for (let s of element.parentElement.children) {
-      sibs.push(s.id);
+      sibs.push({ tagName: s.tagName, identifier: s.id });
     }
   },
 
   getAncestors: function (identifier) {
-    // Must return an array of identifier strings.
+    // Must return an array of objects that describe the ancestors.
+    // Format: { tagName: <string>, identifier: <string> }
     // This array must contain, in order, the chain of parents of the element.
-    // i.e. [ 'parent-id', 'grandparent-id', 'great-grandparent-id' ]
+    // i.e. [ {parent}, {grandparent}, {great-grandparent} ]
     var parent = document.getElementById(identifier).parentElement;
     var ancs = [];
     while (parent) {
-      ancs.push(parent.id);
+      ancs.push({ tagName: parent.tagName, identifier: parent.id });
       parent = parent.parentElement;
     }
     return ancs;
